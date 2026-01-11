@@ -1,27 +1,29 @@
-[
-  {
-    "type": 1,
-    "title": "OpenWebUI",
-    "description": "User-friendly web interface for interacting with Large Language Models (LLMs)",
-    "categories": [
-      "ai",
-      "llm",
-      "chat"
-    ],
-    "platform": "linux",
-    "logo": "https://openwebui.com/favicon.png",
-    "repository": {
-      "url": "https://github.com/jenskock/homelab",
-      "stackfile": "stacks/openwebui/docker-compose.yml"
-    },
-    "env": [
-      {
-        "name": "WEBUI_SECRET_KEY",
-        "label": "Secret Key",
-        "description": "Secret key for session encryption",
-        "default": "",
-        "select": []
-      }
-    ]
-  }
-]
+{
+  "version": "2",
+  "templates": [
+    {
+      "type": 3,
+      "title": "OpenWebUI",
+      "description": "User-friendly web interface for interacting with Large Language Models (LLMs)",
+      "categories": [
+        "AI",
+        "LLM",
+        "Chat"
+      ],
+      "platform": "linux",
+      "logo": "https://openwebui.com/favicon.png",
+      "repository": {
+        "url": "https://github.com/jenskock/homelab",
+        "stackfile": "stacks/openwebui/docker-compose.yml"
+      },
+      "env": [
+        {
+          "name": "WEBUI_SECRET_KEY",
+          "label": "Secret Key",
+          "description": "Secret key for session encryption",
+          "default": ""
+        }
+      ]
+    }
+  ]
+}
