@@ -1,0 +1,28 @@
+[
+  {
+    "type": 1,
+    "title": "OpenWebUI",
+    "description": "User-friendly web interface for interacting with Large Language Models (LLMs)",
+    "note": "Requires external 'traefik' network.",
+    "categories": [
+      "ai",
+      "llm",
+      "chat"
+    ],
+    "platform": "linux",
+    "logo": "https://openwebui.com/favicon.png",
+    "repository": {
+      "url": "https://github.com/open-webui/open-webui",
+      "stackfile": "stacks/openwebui/docker-compose.yml"
+    },
+    "env": [
+      {
+        "name": "WEBUI_SECRET_KEY",
+        "label": "Secret Key",
+        "description": "Secret key for session encryption",
+        "default": "",
+        "select": []
+      }
+    ]
+  }
+]

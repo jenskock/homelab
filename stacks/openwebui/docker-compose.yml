@@ -1,0 +1,53 @@
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    volumes:
+      - open-webui:/app/backend/data
+    environment:
+      - "WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}"
+      - "CHAT_STREAM_RESPONSE_CHUNK_MAX_BUFFER_SIZE=100000000"
+      - "TOOL_SERVER_CONNECTIONS=[{'name':'Web Search','url':'http://ki-chat-mcp-websearch:8000','path':'openapi.json','auth_type':'bearer','key':'','config':{},'info':{'id':'ki-chat-mcp-websearch','name':'Web Search','description':'Provides web search functionality'}}]"
+      - "CONTENT_EXTRACTION_ENGINE=tika"
+      - "BYPASS_EMBEDDING_AND_RETRIEVAL=true"
+    restart: unless-stopped
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`chat.cloud.jenskock.de`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls=true"
+      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+
+  ki-chat-mcp-websearch:
+    image: ghcr.io/kirchhoff-ecotec/ki-chat-mcp:0.0.2
+    container_name: mcp-websearch
+    environment:
+      - "MCP_HOST=0.0.0.0"
+      - "MCP_PORT=8000"
+      - "MCP_SERVER=duckduckgo-mcp-server"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    networks:
+      - traefik
+
+  tika:
+    container_name: tika
+    image: docker.io/apache/tika:latest
+    volumes:
+      - ./tika-config.xml:/tika-config.xml
+    restart: unless-stopped
+    networks:
+      - traefik
+
+volumes:
+  open-webui: {}
+
+networks:
+  traefik:
+    external: true
