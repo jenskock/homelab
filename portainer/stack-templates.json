@@ -3,7 +3,6 @@
     "type": 1,
     "title": "OpenWebUI",
     "description": "User-friendly web interface for interacting with Large Language Models (LLMs)",
-    "note": "Requires external 'traefik' network.",
     "categories": [
       "ai",
       "llm",
@@ -12,7 +11,7 @@
     "platform": "linux",
     "logo": "https://openwebui.com/favicon.png",
     "repository": {
-      "url": "https://github.com/open-webui/open-webui",
+      "url": "https://github.com/jenskock/homelab",
       "stackfile": "stacks/openwebui/docker-compose.yml"
     },
     "env": [
