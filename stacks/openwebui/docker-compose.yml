@@ -15,10 +15,10 @@ services:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(`chat.cloud.jenskock.de`)"
-      - "traefik.http.routers.portainer.entrypoints=websecure"
-      - "traefik.http.routers.portainer.tls=true"
-      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.open-webui.rule=Host(`chat.cloud.jenskock.de`)"
+      - "traefik.http.routers.open-webui.entrypoints=websecure"
+      - "traefik.http.routers.open-webui.tls=true"
+      - "traefik.http.routers.open-webui.tls.certresolver=letsencrypt"
 
   ki-chat-mcp-websearch:
     image: ghcr.io/kirchhoff-ecotec/ki-chat-mcp:0.0.2
