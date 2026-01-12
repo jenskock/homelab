@@ -7,7 +7,7 @@ services:
     environment:
       - "WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}"
       - "CHAT_STREAM_RESPONSE_CHUNK_MAX_BUFFER_SIZE=100000000"
-      - 'TOOL_SERVER_CONNECTIONS=[{"name":"Web Search","url":"http://ki-chat-mcp-websearch:8000","path":"openapi.json","auth_type":"bearer","key":"","config":{},"info":{"id":"ki-chat-mcp-websearch","name":"Web Search","description":"Provides web search functionality"}}]'
+      - "TOOL_SERVER_CONNECTIONS=[{\"name\":\"Web Search\",\"url\":\"http://ki-chat-mcp-websearch:8000\",\"path\":\"openapi.json\",\"auth_type\":\"bearer\",\"key\":\"\",\"config\":{},\"info\":{\"id\":\"ki-chat-mcp-websearch\",\"name\":\"Web Search\",\"description\":\"Provides web search functionality\"}}]"
       - "CONTENT_EXTRACTION_ENGINE=tika"
       - "BYPASS_EMBEDDING_AND_RETRIEVAL=true"
     restart: unless-stopped
@@ -19,6 +19,7 @@ services:
       - "traefik.http.routers.open-webui.entrypoints=websecure"
       - "traefik.http.routers.open-webui.tls=true"
       - "traefik.http.routers.open-webui.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.open-webui.service=open-webui"
       - "traefik.http.services.open-webui.loadbalancer.server.port=8080"
 
   ki-chat-mcp-websearch:
