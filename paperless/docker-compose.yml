@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     env_file:
-      - /opt/paperless/env
+      - /opt/paperless/.env
     volumes:
       - /opt/paperless/pgdata:/var/lib/postgresql
     networks:
@@ -63,7 +63,7 @@ services:
       - /mnt/synology_backup/jens/Paperless/export:/usr/src/paperless/export
       - /mnt/synology_backup/jens/Paperless/consume:/usr/src/paperless/consume
     env_file:
-      - /opt/paperless/env
+      - /opt/paperless/.env
     environment:
       PAPERLESS_REDIS: redis://broker:6379
       PAPERLESS_DBHOST: db
