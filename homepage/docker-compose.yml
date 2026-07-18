@@ -14,7 +14,7 @@ services:
       - homelab
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.homepage.rule=Host(`lab.jenskock.de`)"
+      - "traefik.http.routers.homepage.rule=Host(`jenskock.de`) || Host(`www.jenskock.de`)"
       - "traefik.http.routers.homepage.entrypoints=web"
       - "traefik.http.services.homepage.loadbalancer.server.port=3000"
 

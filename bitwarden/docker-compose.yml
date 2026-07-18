@@ -14,14 +14,14 @@ services:
       SIGNUPS_ALLOWED: "false"
       SHOW_PASSWORD_HINT: "false"
       USER_ATTACHMENT_LIMIT: "100000000"
-      DOMAIN: "https://lab-bw.jenskock.de"
+      DOMAIN: "https://bw.jenskock.de"
     volumes:
       - /opt/bitwarden/data:/data
     networks:
       - homelab
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.bitwarden.rule=Host(`lab-bw.jenskock.de`)"
+      - "traefik.http.routers.bitwarden.rule=Host(`bw.jenskock.de`)"
       - "traefik.http.routers.bitwarden.entrypoints=web"
       - "traefik.http.services.bitwarden.loadbalancer.server.port=80"
 
