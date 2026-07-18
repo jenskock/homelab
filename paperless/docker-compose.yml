@@ -74,7 +74,7 @@ services:
       - homelab
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.paperless.rule=Host(`lab-paperless.jenskock.de`)"
+      - "traefik.http.routers.paperless.rule=Host(`paperless.jenskock.de`)"
       - "traefik.http.routers.paperless.entrypoints=web"
       - "traefik.http.services.paperless.loadbalancer.server.port=8000"
 
@@ -89,7 +89,7 @@ services:
       - homelab
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.paperless-ai.rule=Host(`lab-paperless-ai.jenskock.de`)"
+      - "traefik.http.routers.paperless-ai.rule=Host(`paperless-ai.jenskock.de`)"
       - "traefik.http.routers.paperless-ai.entrypoints=web"
       - "traefik.http.services.paperless-ai.loadbalancer.server.port=3000"
 
