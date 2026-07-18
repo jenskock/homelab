@@ -83,8 +83,21 @@ services:
     container_name: paperless-ai
     restart: unless-stopped
     logging: *default-logging
+    # paperless-ai truncates .env values at '=' (breaks Requesty keys)
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        JS=/app/services/setupService.js
+        if [ -f "$$JS" ] && grep -qF "const [key, value] = line.split('=');" "$$JS"; then
+          sed -i "s|const \[key, value\] = line.split('=');|const __eq = line.indexOf('='); const key = line.slice(0, __eq); const value = line.slice(__eq + 1);|" "$$JS"
+        fi
+        exec ./start-services.sh
+    env_file:
+      - /opt/paperless/.env
     volumes:
-      - /opt/paperless/data:/app/data
+      - /opt/paperless/ai-data:/app/data
+      - /opt/paperless/.env:/app/data/.env
     networks:
       - homelab
     labels:
