@@ -1,0 +1,91 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=homelab"
+
+      # TLS terminates at Cloudflare; tunnel forwards HTTP to Traefik
+      - "--entrypoints.web.address=:80"
+
+      # required for portainer https backend
+      - "--serversTransport.insecureSkipVerify=true"
+
+      # required for long running requests (deploy/logs)
+      - "--entrypoints.web.transport.respondingTimeouts.readTimeout=0"
+      - "--entrypoints.web.transport.respondingTimeouts.writeTimeout=0"
+      - "--entrypoints.web.transport.respondingTimeouts.idleTimeout=0"
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    networks:
+      - homelab
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    logging: *default-logging
+    command: tunnel --no-autoupdate run
+    env_file:
+      - /opt/cloudflared/.env
+    networks:
+      - homelab
+    depends_on:
+      - traefik
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    logging: *default-logging
+    command: -H unix:///var/run/docker.sock
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/portainer/data:/data
+      - /opt:/opt:ro
+
+    ports:
+      - "9443:9443"   # keep for debugging (can remove later)
+
+    networks:
+      - homelab
+
+    labels:
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.portainer.rule=Host(`lab-portainer.jenskock.de`)"
+      - "traefik.http.routers.portainer.entrypoints=web"
+
+      - "traefik.http.middlewares.portainer-nobuffer.buffering.maxRequestBodyBytes=0"
+      - "traefik.http.middlewares.portainer-nobuffer.buffering.memRequestBodyBytes=0"
+      - "traefik.http.middlewares.portainer-nobuffer.buffering.maxResponseBodyBytes=0"
+      - "traefik.http.middlewares.portainer-nobuffer.buffering.memResponseBodyBytes=0"
+
+      - "traefik.http.middlewares.portainer-headers.headers.customrequestheaders.Connection=Upgrade"
+      - "traefik.http.middlewares.portainer-headers.headers.customrequestheaders.Upgrade=websocket"
+
+      - "traefik.http.routers.portainer.middlewares=portainer-nobuffer,portainer-headers"
+
+      - "traefik.http.services.portainer.loadbalancer.server.port=9443"
+      - "traefik.http.services.portainer.loadbalancer.server.scheme=https"
+      - "traefik.http.services.portainer.loadbalancer.passhostheader=true"
+
+networks:
+  homelab:
+    name: homelab

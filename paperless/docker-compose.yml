@@ -1,0 +1,101 @@
+version: "3.9"
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  broker:
+    image: docker.io/library/redis:8
+    container_name: paperless-broker
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - /opt/paperless/redisdata:/data
+    networks:
+      - homelab
+
+  db:
+    image: docker.io/library/postgres:18
+    container_name: paperless-db
+    restart: unless-stopped
+    logging: *default-logging
+    env_file:
+      - /opt/paperless/env
+    volumes:
+      - /opt/paperless/pgdata:/var/lib/postgresql
+    networks:
+      - homelab
+
+  gotenberg:
+    image: docker.io/gotenberg/gotenberg:8.24
+    container_name: paperless-gotenberg
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+    networks:
+      - homelab
+
+  tika:
+    image: docker.io/apache/tika:latest
+    container_name: paperless-tika
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - homelab
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - db
+      - broker
+      - gotenberg
+      - tika
+    volumes:
+      - /opt/paperless/data:/usr/src/paperless/data
+      - /mnt/synology_backup/jens/Paperless/media:/usr/src/paperless/media
+      - /mnt/synology_backup/jens/Paperless/export:/usr/src/paperless/export
+      - /mnt/synology_backup/jens/Paperless/consume:/usr/src/paperless/consume
+    env_file:
+      - /opt/paperless/env
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBHOST: db
+      PAPERLESS_TIKA_ENABLED: 1
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+    networks:
+      - homelab
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.paperless.rule=Host(`lab-paperless.jenskock.de`)"
+      - "traefik.http.routers.paperless.entrypoints=web"
+      - "traefik.http.services.paperless.loadbalancer.server.port=8000"
+
+  paperless-ai:
+    image: clusterzx/paperless-ai:latest
+    container_name: paperless-ai
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - /opt/paperless/data:/app/data
+    networks:
+      - homelab
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.paperless-ai.rule=Host(`lab-paperless-ai.jenskock.de`)"
+      - "traefik.http.routers.paperless-ai.entrypoints=web"
+      - "traefik.http.services.paperless-ai.loadbalancer.server.port=3000"
+
+networks:
+  homelab:
+    external: true
+    name: homelab
