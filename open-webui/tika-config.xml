@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+    <parsers>
+        <parser class="org.apache.tika.parser.DefaultParser"/>
+        <parser class="org.apache.tika.parser.microsoft.OfficeParser">
+            <params>
+                <param name="byteArrayMaxOverride" type="int">200000000</param>
+            </params>
+        </parser>
+    </parsers>
+</properties>

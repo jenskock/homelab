@@ -1,0 +1,43 @@
+use_default_settings:
+  engines:
+    keep_only:
+      - startpage
+      - brave
+      - bing
+      - duckduckgo
+
+general:
+  instance_name: "SearXNG"
+  debug: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "de-DE"
+  formats:
+    - html
+    - json
+
+server:
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: false
+  public_instance: false
+  secret_key: "dADeFmfbf8bFsACTNigKbVzM0UU1NH"
+  method: "GET"
+
+outgoing:
+  request_timeout: 10.0
+  pool_connections: 10
+  pool_maxsize: 5
+
+engines:
+  - name: bing
+    disabled: false
+    weight: 1.0
+  - name: startpage
+    weight: 1.0
+  - name: brave
+    weight: 1.0
+  - name: duckduckgo
+    weight: 0.5

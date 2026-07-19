@@ -1,0 +1,58 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - /opt/open-webui/data:/app/backend/data
+    env_file:
+      - /opt/open-webui/.env
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - homelab
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.open-webui.rule=Host(`test-chat.jenskock.de`)"
+      - "traefik.http.routers.open-webui.entrypoints=web"
+      - "traefik.http.services.open-webui.loadbalancer.server.port=8080"
+
+  tika:
+    image: docker.io/apache/tika:latest
+    container_name: open-webui-tika
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - /opt/open-webui/tika-config.xml:/tika-config.xml
+    command: ["-c", "/tika-config.xml"]
+    networks:
+      - homelab
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: open-webui-searxng
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - /opt/open-webui/searxng:/etc/searxng:rw
+    env_file:
+      - /opt/open-webui/.env
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    networks:
+      - homelab
+
+networks:
+  homelab:
+    external: true
+    name: homelab
