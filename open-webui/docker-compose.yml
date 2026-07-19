@@ -20,7 +20,7 @@ services:
       - homelab
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.open-webui.rule=Host(`test-chat.jenskock.de`)"
+      - "traefik.http.routers.open-webui.rule=Host(`chat.jenskock.de`)"
       - "traefik.http.routers.open-webui.entrypoints=web"
       - "traefik.http.services.open-webui.loadbalancer.server.port=8080"
 
