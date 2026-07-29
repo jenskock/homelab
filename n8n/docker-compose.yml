@@ -16,11 +16,26 @@ services:
       - /opt/n8n/data:/home/node/.n8n
     networks:
       - homelab
+    depends_on:
+      - gotenberg
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`n8n.jenskock.de`)"
       - "traefik.http.routers.n8n.entrypoints=web"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: n8n-gotenberg
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - "gotenberg"
+      - "--api-timeout=60s"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=^file:///tmp/.*"
+    networks:
+      - homelab
 
 networks:
   homelab:
