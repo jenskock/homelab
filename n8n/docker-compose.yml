@@ -14,6 +14,7 @@ services:
       - /opt/n8n/.env
     volumes:
       - /opt/n8n/data:/home/node/.n8n
+      - /opt/n8n/briefings:/home/node/.n8n-files
     networks:
       - homelab
     depends_on:
