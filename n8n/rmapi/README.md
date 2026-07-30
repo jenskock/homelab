@@ -38,14 +38,6 @@ docker compose up -d
 2. Override the watch entrypoint and log in:
 
    ```bash
-   docker compose run --rm --entrypoint rmapi \
-     -e RMAPI_CONFIG=/home/node/.config/rmapi/rmapi.conf \
-     rmapi
-   ```
-
-   Or:
-
-   ```bash
    docker exec -it -u 1000 \
      -e RMAPI_CONFIG=/home/node/.config/rmapi/rmapi.conf \
      n8n-rmapi rmapi
@@ -88,6 +80,15 @@ Sidecar: `outbox/<base>.pdf` +
 | Arch / missing binary | `docker compose build --no-cache rmapi` |
 | Workflow timeout | `failed/*.err`, pairing, network |
 | `Cannot find module 'fs'` | Set `NODE_FUNCTION_ALLOW_BUILTIN=fs` |
+
+**User token HTTP 400 after pairing:** reMarkable requires a physical
+tablet already connected to the same cloud account. With
+`RMAPI_TRACE=1`, the body is: *You must connect a rM device in the
+webapp before you can use this service.* Connect the tablet first,
+then re-run rmapi login.
+
+**`compose … not found`:** run compose from the repo `n8n/` directory
+(where `docker-compose.yml` lives), or use `docker exec` as above.
 
 ## Verified vs best-effort
 
