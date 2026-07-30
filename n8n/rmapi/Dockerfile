@@ -1,10 +1,12 @@
 # ddvk/rmapi (juruen/rmapi archived). Assets: rmapi-linux-{amd64,arm64}.tar.gz
+# amd64 release is glibc-linked → need libc6-compat on Alpine.
 FROM alpine:3.21
 
 ARG TARGETARCH
 ARG RMAPI_VERSION=v0.0.34
 
-RUN apk add --no-cache ca-certificates curl \
+RUN test -n "$TARGETARCH" \
+  && apk add --no-cache ca-certificates curl libc6-compat \
   && curl -fsSL -o /tmp/rmapi.tgz \
     "https://github.com/ddvk/rmapi/releases/download/${RMAPI_VERSION}/rmapi-linux-${TARGETARCH}.tar.gz" \
   && tar -xzf /tmp/rmapi.tgz -C /usr/local/bin rmapi \

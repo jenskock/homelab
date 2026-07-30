@@ -94,5 +94,5 @@ Sidecar: `outbox/<base>.pdf` +
 Verified: fork `ddvk/rmapi` v0.0.34 asset names, pairing URL,
 `RMAPI_CONFIG`, `put --force` overwrite.
 
-Best-effort: one-time code TTL (~5 min), device-token lifetime,
-musl compatibility (build runs `rmapi version`).
+Best-effort: one-time code TTL (~5 min), device-token lifetime.
+amd64 release binary is glibc-linked; image installs `libc6-compat`.
