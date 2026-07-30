@@ -1,0 +1,179 @@
+{
+  "name": "remarkable-upload",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b2000001-0000-4000-8000-000000000001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b2000001-0000-4000-8000-000000000002",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const minimalPdf = Buffer.from(\n  '%PDF-1.4\\n' +\n    '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\\n' +\n    '2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\\n' +\n    '3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj\\n' +\n    'xref\\n0 4\\n0000000000 65535 f \\n0000000009 00000 n \\n0000000052 00000 n \\n0000000101 00000 n \\n' +\n    'trailer<</Size 4/Root 1 0 R>>\\n' +\n    'startxref\\n178\\n%%EOF\\n',\n  'utf8',\n);\n\nconst filename = 'rmapi-smoke-test.pdf';\nconst binary = await this.helpers.prepareBinaryData(\n  minimalPdf,\n  filename,\n  'application/pdf',\n);\n\nreturn [\n  {\n    json: {\n      filename,\n      folder: '/Inbox',\n    },\n    binary: {\n      data: binary,\n    },\n  },\n];\n"
+      },
+      "id": "b2000001-0000-4000-8000-000000000003",
+      "name": "Placeholder PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const FOLDER_RE = /^(\\/[A-Za-z0-9._-]+)+$/;\nconst STAGING = '/home/node/.n8n-files/rmapi-staging';\n\nconst item = $input.first();\nif (!item.binary?.data) {\n  throw new Error('Missing binary.data');\n}\n\nconst filenameRaw = String(item.json.filename ?? item.binary.data.fileName ?? 'document.pdf');\nconst filename = filenameRaw.split(/[/\\\\]/).pop() || 'document.pdf';\n\nconst folder = String(item.json.folder ?? '/Inbox').replace(/\\/$/, '') || '/Inbox';\nif (!FOLDER_RE.test(folder)) {\n  throw new Error(`Invalid folder \"${folder}\". Expected /Inbox or /Inbox/NZZ`);\n}\n\nconst safeName =\n  filename.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^[-.]+|[-.]+$/g, '') ||\n  'document.pdf';\nconst base = `upload-${$execution.id}-${safeName}`;\nconst pdfName = base.endsWith('.pdf') ? base : `${base}.pdf`;\n\nconst outboxPdf = `${STAGING}/outbox/${pdfName}`;\nconst outboxMeta = `${outboxPdf}.meta.json`;\nconst donePdf = `${STAGING}/done/${pdfName}`;\nconst doneMeta = `${donePdf}.meta.json`;\nconst failedPdf = `${STAGING}/failed/${pdfName}`;\nconst failedMeta = `${failedPdf}.meta.json`;\nconst failedErr = `${STAGING}/failed/${pdfName}.err`;\n\nconst metaBinary = await this.helpers.prepareBinaryData(\n  Buffer.from(JSON.stringify({ folder, name: filename }), 'utf8'),\n  `${pdfName}.meta.json`,\n  'application/json',\n);\n\nconst pdfBinary = item.binary.data;\npdfBinary.fileName = pdfName;\npdfBinary.mimeType = pdfBinary.mimeType || 'application/pdf';\n\nreturn [\n  {\n    json: {\n      filename,\n      folder,\n      base: pdfName,\n      outboxPdf,\n      outboxMeta,\n      donePdf,\n      doneMeta,\n      failedPdf,\n      failedMeta,\n      failedErr,\n    },\n    binary: {\n      data: pdfBinary,\n      meta: metaBinary,\n    },\n  },\n];\n"
+      },
+      "id": "b2000001-0000-4000-8000-000000000004",
+      "name": "Prepare Staging Path",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.outboxMeta }}",
+        "dataPropertyName": "meta",
+        "options": {}
+      },
+      "id": "b2000001-0000-4000-8000-000000000005",
+      "name": "Write Meta",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        760,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.outboxPdf }}",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "b2000001-0000-4000-8000-000000000006",
+      "name": "Write PDF",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const fs = require('fs');\n\nconst item = $input.first();\nconst { donePdf, doneMeta, failedPdf, failedMeta, failedErr, base, folder, filename } = item.json;\nconst timeoutMs = 60000;\nconst pollMs = 2000;\n\nconst start = Date.now();\nwhile (Date.now() - start < timeoutMs) {\n  if (fs.existsSync(donePdf)) {\n    fs.rmSync(donePdf, { force: true });\n    fs.rmSync(doneMeta, { force: true });\n    return [{ json: { status: 'uploaded', filename, folder, base } }];\n  }\n\n  if (fs.existsSync(failedPdf) || fs.existsSync(failedErr)) {\n    let err = 'rmapi upload failed';\n    if (fs.existsSync(failedErr)) {\n      err = fs.readFileSync(failedErr, 'utf8').trim() || err;\n    }\n    fs.rmSync(failedPdf, { force: true });\n    fs.rmSync(failedMeta, { force: true });\n    fs.rmSync(failedErr, { force: true });\n    throw new Error(err);\n  }\n\n  await new Promise((resolve) => setTimeout(resolve, pollMs));\n}\n\nthrow new Error(`Timed out waiting for rmapi upload (base=${base})`);\n"
+      },
+      "id": "b2000001-0000-4000-8000-000000000007",
+      "name": "Wait for Upload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare Staging Path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Placeholder PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Placeholder PDF": {
+      "main": [
+        [
+          {
+            "node": "Prepare Staging Path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Staging Path": {
+      "main": [
+        [
+          {
+            "node": "Write Meta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Meta": {
+      "main": [
+        [
+          {
+            "node": "Write PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write PDF": {
+      "main": [
+        [
+          {
+            "node": "Wait for Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "tags": []
+}

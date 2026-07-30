@@ -1,0 +1,64 @@
+{
+  "name": "test-error",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "throw new Error('Test error for global-error-handler');"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        0
+      ],
+      "id": "ed8e5bad-fee1-421a-8377-0428343e4ce1",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "0f7dd4dd-7d59-4456-b839-e0fe7761ce4d",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -48,
+        0
+      ],
+      "id": "e6833b56-9c75-4fc6-a767-97e0d94f878b",
+      "name": "Webhook",
+      "webhookId": "0f7dd4dd-7d59-4456-b839-e0fe7761ce4d"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "79SZwYhbHs5VMT4v",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "c05b9a47-8540-4599-97f6-d539fb4c744a",
+  "meta": {
+    "instanceId": "da0f2b3490b97d2187f7b88cd32ab070f99c9a218f821b5f278005eb69c6432f"
+  },
+  "nodeGroups": [],
+  "id": "sYrvqSnVpuB49y3L",
+  "tags": []
+}
