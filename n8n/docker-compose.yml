@@ -48,9 +48,9 @@ services:
     logging: *default-logging
     command:
       - "gotenberg"
-      - "--api-timeout=60s"
-      - "--chromium-disable-javascript=true"
-      - "--chromium-allow-list=^file:///tmp/.*"
+      - "--api-timeout=120s"
+      # file:// for HTML uploads; https? for RSS article URL→PDF
+      - "--chromium-allow-list=^file:///tmp/.*|^https?://.*"
     networks:
       - homelab
 
