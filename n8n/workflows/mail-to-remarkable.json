@@ -1,0 +1,272 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const meta = $('Name PDF').first().json;\nconst messageId = String(meta.messageId ?? '');\n\nconst staticData = $getWorkflowStaticData('global');\nif (!Array.isArray(staticData.processedMessageIds)) {\n  staticData.processedMessageIds = [];\n}\n\nif (messageId && !staticData.processedMessageIds.includes(messageId)) {\n  staticData.processedMessageIds.push(messageId);\n  if (staticData.processedMessageIds.length > 200) {\n    staticData.processedMessageIds = staticData.processedMessageIds.slice(-200);\n  }\n}\n\nreturn [\n  {\n    json: {\n      status: 'processed',\n      filename: meta.filename,\n      folder: meta.folder,\n      messageId,\n    },\n  },\n];\n"
+      },
+      "id": "41088830-6c76-4c10-9e42-1503b5c995b4",
+      "name": "Record Processed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "remarkable-upload"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "b209bba5-7ee0-4885-83f0-7ccf19817f55",
+      "name": "Upload to reMarkable",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const meta = $('Build reMarkable HTML').first().json;\nconst item = $input.first();\n\nitem.json = {\n  ...item.json,\n  title: meta.title,\n  filename: meta.filename,\n  folder: meta.folder,\n  messageId: meta.messageId,\n};\n\nif (item.binary?.data) {\n  item.binary.data.fileName = meta.filename;\n  item.binary.data.mimeType = 'application/pdf';\n}\n\nreturn [item];\n"
+      },
+      "id": "0f45060e-ae46-4056-95ae-6c3adb29987c",
+      "name": "Name PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://n8n-gotenberg:3000/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "paperWidth",
+              "value": "6.2"
+            },
+            {
+              "name": "paperHeight",
+              "value": "8.25"
+            },
+            {
+              "name": "marginTop",
+              "value": "0.4"
+            },
+            {
+              "name": "marginBottom",
+              "value": "0.4"
+            },
+            {
+              "name": "marginLeft",
+              "value": "0.45"
+            },
+            {
+              "name": "marginRight",
+              "value": "0.45"
+            },
+            {
+              "name": "waitDelay",
+              "value": "2s"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "019e0ea1-de8c-47d9-82ea-9054c756ea82",
+      "name": "HTML → PDF (Gotenberg)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst subject = String(item.subject ?? '').trim() || 'NZZ Briefing';\nconst htmlRaw = String(item.textHtml ?? '').trim();\nconst textPlain = String(item.textPlain ?? '').trim();\n\nif (!htmlRaw && !textPlain) {\n  throw new Error(`Empty body for mail: ${subject}`);\n}\n\nfunction berlinDateString(date) {\n  return new Intl.DateTimeFormat('en-CA', {\n    timeZone: 'Europe/Berlin',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).format(date);\n}\n\nfunction escapeHtml(text) {\n  return text\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n}\n\nfunction sanitizeFilename(name) {\n  const ascii = name\n    .replace(/ß/g, 'ss')\n    .replace(/ẞ/g, 'SS')\n    .replace(/ä/g, 'ae')\n    .replace(/ö/g, 'oe')\n    .replace(/ü/g, 'ue')\n    .replace(/Ä/g, 'Ae')\n    .replace(/Ö/g, 'Oe')\n    .replace(/Ü/g, 'Ue')\n    .normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '');\n  const base =\n    ascii\n      .replace(/[^A-Za-z0-9._-]+/g, '-')\n      .replace(/-+/g, '-')\n      .replace(/^[-.]+|[-.]+$/g, '') || 'NZZ-Mail';\n  return base.endsWith('.pdf') ? base : `${base}.pdf`;\n}\n\nfunction extractBody(html) {\n  const bodyMatch = html.match(/<body\\b[^>]*>([\\s\\S]*?)<\\/body>/i);\n  return bodyMatch ? bodyMatch[1] : html;\n}\n\nfunction cleanEmailHtml(html) {\n  let out = extractBody(html);\n  out = out\n    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<img\\b[^>]*(?:width\\s*=\\s*[\"']?1[\"']?|height\\s*=\\s*[\"']?1[\"']?)[^>]*>/gi, '')\n    .replace(/<img\\b[^>]*height\\s*=\\s*[\"']?1[\"']?[^>]*>/gi, '')\n    .replace(/<!--[\\s\\S]*?-->/g, '');\n\n  // Email templates often lazy-load editorial photos via data-src/data-original.\n  // Chromium only renders normal src attributes when generating the PDF.\n  out = out.replace(/<img\\b([^>]*?)>/gi, (tag, attrs) => {\n    if (!/\\bsrc\\s*=/i.test(attrs)) {\n      const lazy = attrs.match(/\\b(?:data-src|data-original|data-lazy-src)\\s*=\\s*([\"'])(.*?)\\1/i);\n      if (lazy?.[2]) attrs += ` src=\"${lazy[2]}\"`;\n    }\n    if (!/\\bloading\\s*=/i.test(attrs)) attrs += ' loading=\"eager\"';\n    return `<img${attrs}>`;\n  });\n\n  return out.trim();\n}\n\nconst received = item.date ? new Date(item.date) : new Date();\nconst stamp = Number.isNaN(received.getTime())\n  ? berlinDateString(new Date())\n  : berlinDateString(received);\n\nlet bodyInner;\nif (htmlRaw) {\n  bodyInner = cleanEmailHtml(htmlRaw);\n} else {\n  bodyInner = textPlain\n    .split(/\\n{2,}/)\n    .map((p) => p.trim())\n    .filter(Boolean)\n    .map((p) => `<p>${escapeHtml(p).replace(/\\n/g, '<br />')}</p>`)\n    .join('\\n');\n}\n\nconst filename = sanitizeFilename(subject);\nconst documentHtml = `<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n  <meta charset=\"utf-8\" />\n  <title>${escapeHtml(subject)}</title>\n  <style>\n    @page { margin: 14mm; }\n    body {\n      margin: 0;\n      color: #111;\n      font-family: Georgia, \"Times New Roman\", serif;\n      font-size: 12.5pt;\n      line-height: 1.45;\n    }\n    h1 {\n      font-size: 22pt;\n      line-height: 1.2;\n      margin: 0 0 0.4em;\n    }\n    h2 {\n      font-size: 14.5pt;\n      line-height: 1.25;\n      margin: 1.35em 0 0.45em;\n      padding-top: 0.2em;\n      border-top: 1px solid #bbb;\n    }\n    h2:first-of-type { border-top: 0; padding-top: 0; }\n    h3 { font-size: 12.5pt; margin: 1em 0 0.35em; }\n    p { margin: 0 0 0.75em; }\n    ul { margin: 0 0 1em; padding-left: 1.2em; }\n    li { margin: 0 0 0.55em; }\n    a { color: #111; text-decoration: underline; }\n    img { max-width: 100%; height: auto; }\n    table { width: 100% !important; max-width: 100% !important; }\n    .meta {\n      font-family: sans-serif;\n      font-size: 9.5pt;\n      color: #444;\n      margin: 0 0 1.4em;\n    }\n  </style>\n</head>\n<body>\n  <p class=\"meta\">${escapeHtml(subject)} · ${escapeHtml(stamp)} · Gmail reMarkable inbox</p>\n  ${bodyInner}\n</body>\n</html>`;\n\nconst binary = await this.helpers.prepareBinaryData(\n  Buffer.from(documentHtml, 'utf8'),\n  'index.html',\n  'text/html',\n);\n\nreturn [\n  {\n    json: {\n      title: subject,\n      filename,\n      stamp,\n      folder: `/News/${stamp}`,\n      messageId: String(item.messageId ?? ''),\n      from: String(item.from ?? ''),\n    },\n    binary: { data: binary },\n  },\n];\n"
+      },
+      "id": "0ac5867a-47f7-41d5-ba69-b8423d57e55f",
+      "name": "Build reMarkable HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "332ca1b3-0ae5-487a-9450-d1c79056f119",
+      "name": "Loop Emails",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        448,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nif (!Array.isArray(staticData.processedMessageIds)) {\n  staticData.processedMessageIds = [];\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const meta = item.json.metadata && typeof item.json.metadata === 'object' ? item.json.metadata : {};\n  const messageId = String(\n    meta['message-id'] ?? meta.messageId ?? item.json.attributes?.uid ?? '',\n  );\n  if (messageId && staticData.processedMessageIds.includes(messageId)) continue;\n\n  out.push({\n    json: {\n      ...item.json,\n      messageId,\n    },\n  });\n}\n\nreturn out;\n"
+      },
+      "id": "631a8ecf-e45f-43cb-9875-025ac43eaaf5",
+      "name": "Filter Unread + Dedupe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\"]",
+          "forceReconnect": 15,
+          "trackLastMessageId": true
+        },
+        "mailbox": "INBOX",
+        "postProcessAction": "read",
+        "downloadAttachments": false,
+        "format": "simple"
+      },
+      "id": "293befa1-3980-4864-9c0a-b1e68893ab09",
+      "name": "Email Trigger (IMAP)",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        80
+      ],
+      "credentials": {
+        "imap": {
+          "name": "Gmail reMarkable"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Record Processed": {
+      "main": [
+        [
+          {
+            "node": "Loop Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to reMarkable": {
+      "main": [
+        [
+          {
+            "node": "Record Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Name PDF": {
+      "main": [
+        [
+          {
+            "node": "Upload to reMarkable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML → PDF (Gotenberg)": {
+      "main": [
+        [
+          {
+            "node": "Name PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build reMarkable HTML": {
+      "main": [
+        [
+          {
+            "node": "HTML → PDF (Gotenberg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Emails": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Build reMarkable HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Filter Unread + Dedupe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Unread + Dedupe": {
+      "main": [
+        [
+          {
+            "node": "Loop Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "da0f2b3490b97d2187f7b88cd32ab070f99c9a218f821b5f278005eb69c6432f"
+  }
+}

@@ -36,15 +36,6 @@ reMarkable pairing and the upload workflow:
 
 | Workflow | Schedule | Output |
 | --- | --- | --- |
-| `nzz-briefing-remarkable` | 08:00 Mon–Sat | `/News/YYYY-MM-DD/NZZ-Briefing.pdf` |
+| `nzz-mail-remarkable` | IMAP (IDLE + reconnect 15m) | `/News/YYYY-MM-DD/<subject>.pdf` |
 | `rss-to-remarkable` | 07:00 daily | `/News/YYYY-MM-DD/<Publisher>-<Topic>.pdf` |
 | `remarkable-upload` | (sub-workflow) | uploads PDF via rmapi |
-
-### RSS → reMarkable
-
-1. `docker compose up -d --build article-extractor gotenberg`
-2. Import `workflows/rss-to-remarkable.json` (and `remarkable-upload` if needed)
-3. Edit **Config Feeds** to add/remove feeds
-4. Each morning: previous Berlin day → `/News/<day>/<Publisher>-<Topic>.pdf`
-
-See [article-extractor/README.md](article-extractor/README.md) for local tests.
