@@ -10,10 +10,10 @@ container watches the outbox and runs `rmapi put --force`.
 
 | Host | n8n | rmapi | Purpose |
 | --- | --- | --- | --- |
-| `/opt/n8n/rmapi-staging` | `…/rmapi-staging` | `/data` | staging dirs |
+| `/opt/n8n/rmapi-staging` | `/home/node/.n8n-files` | `/data` | staging dirs |
 | `/opt/n8n/rmapi` | — | `~/.config/rmapi` | auth (`rmapi.conf`) |
 
-n8n path: `/home/node/.n8n-files/rmapi-staging`
+n8n path: `/home/node/.n8n-files`
 (`outbox/` / `done/` / `failed/`).
 
 ## Build & start

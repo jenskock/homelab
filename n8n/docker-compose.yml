@@ -14,7 +14,7 @@ services:
       - /opt/n8n/.env
     volumes:
       - /opt/n8n/data:/home/node/.n8n
-      - /opt/n8n/rmapi-staging:/home/node/.n8n-files/rmapi-staging
+      - /opt/n8n/rmapi-staging:/home/node/.n8n-files
     networks:
       - homelab
     depends_on:
