@@ -1,0 +1,230 @@
+{
+  "name": "rss-to-remarkable",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "c3000001-0000-4000-8000-000000000001",
+      "name": "Schedule 07:00 daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c3000001-0000-4000-8000-000000000002",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const FEEDS = [\n  {\n    publisher: 'Golem',\n    topic: 'Internet',\n    feedUrl: 'https://rss.golem.de/rss.php?ms=internet&feed=RSS2.0',\n  },\n  {\n    publisher: 'Golem',\n    topic: 'Open-Source',\n    feedUrl: 'https://rss.golem.de/rss.php?ms=open-source&feed=RSS2.0',\n  },\n  {\n    publisher: 'Golem',\n    topic: 'Security',\n    feedUrl: 'https://rss.golem.de/rss.php?ms=security&feed=RSS2.0',\n  },\n  {\n    publisher: 'Golem',\n    topic: 'Softwareentwicklung',\n    feedUrl: 'https://rss.golem.de/rss.php?ms=softwareentwicklung&feed=RSS2.0',\n  },\n];\n\nconst SEG = /^[A-Za-z0-9._-]+$/;\n\nfunction berlinDateString(date) {\n  return new Intl.DateTimeFormat('en-CA', {\n    timeZone: 'Europe/Berlin',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).format(date);\n}\n\nfunction addCivilDays(ymd, delta) {\n  const [y, m, d] = ymd.split('-').map(Number);\n  const t = Date.UTC(y, m - 1, d) + delta * 86400000;\n  return new Date(t).toISOString().slice(0, 10);\n}\n\nconst targetDay = addCivilDays(berlinDateString(new Date()), -1);\n\nreturn FEEDS.map((feed) => {\n  const publisher = String(feed.publisher || '').trim();\n  const topic = String(feed.topic || '').trim();\n  if (!SEG.test(publisher) || !SEG.test(topic)) {\n    throw new Error(`Invalid publisher/topic \"${publisher}\"/\"${topic}\"`);\n  }\n  const feedName = `${publisher}-${topic}`;\n  return {\n    json: {\n      publisher,\n      topic,\n      feedName,\n      feedUrl: String(feed.feedUrl || '').trim(),\n      targetDay,\n      folder: `/News/${targetDay}`,\n      filename: `${feedName}.pdf`,\n    },\n  };\n});\n"
+      },
+      "id": "c3000001-0000-4000-8000-000000000003",
+      "name": "Config Feeds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "c3000001-0000-4000-8000-000000000004",
+      "name": "Loop Feeds",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        520,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const EXTRACTOR = 'http://article-extractor:8080';\n\nconst feed = $input.first().json;\nconst { feedName, feedUrl, targetDay, folder, filename } = feed;\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${EXTRACTOR}/v1/feed-day-pdf`,\n  headers: { 'Content-Type': 'application/json' },\n  body: {\n    feed_url: feedUrl,\n    day: targetDay,\n    feed_title: feedName,\n    max_articles: 25,\n  },\n  encoding: 'arraybuffer',\n  returnFullResponse: true,\n  timeout: 300000,\n});\n\nconst status = response.statusCode || response.status || 0;\nif (status === 204) {\n  return [\n    {\n      json: {\n        feedName,\n        feedUrl,\n        targetDay,\n        folder,\n        filename,\n        skipped: true,\n        articleCount: 0,\n        reason: 'no articles for target day',\n      },\n    },\n  ];\n}\n\nif (status < 200 || status >= 300) {\n  const body = response.body;\n  const detail = Buffer.isBuffer(body)\n    ? body.toString('utf8')\n    : typeof body === 'string'\n      ? body\n      : JSON.stringify(body ?? '');\n  throw new Error(`article-extractor failed for ${feedName} (status=${status}): ${String(detail).slice(0, 500)}`);\n}\n\nfunction asBuffer(payload) {\n  if (Buffer.isBuffer(payload)) return payload;\n  if (payload?.type === 'Buffer' && Array.isArray(payload.data)) {\n    return Buffer.from(payload.data);\n  }\n  if (payload instanceof ArrayBuffer) return Buffer.from(payload);\n  if (ArrayBuffer.isView(payload)) {\n    return Buffer.from(payload.buffer, payload.byteOffset, payload.byteLength);\n  }\n  if (typeof payload === 'string') return Buffer.from(payload, 'binary');\n  throw new Error(`Unexpected PDF payload type: ${typeof payload}`);\n}\n\nconst pdf = asBuffer(response.body);\nif (pdf.length < 100 || pdf.slice(0, 4).toString() !== '%PDF') {\n  throw new Error(`article-extractor returned non-PDF (${pdf.length} bytes)`);\n}\n\nconst headers = response.headers || {};\nconst articleCount = Number(headers['x-article-count'] || headers['X-Article-Count'] || 0);\nconst failedCount = Number(headers['x-failed-count'] || headers['X-Failed-Count'] || 0);\nconst binary = await this.helpers.prepareBinaryData(pdf, filename, 'application/pdf');\n\nreturn [\n  {\n    json: {\n      feedName,\n      feedUrl,\n      targetDay,\n      folder,\n      filename,\n      skipped: false,\n      articleCount,\n      failedCount,\n    },\n    binary: { data: binary },\n  },\n];\n"
+      },
+      "id": "c3000001-0000-4000-8000-000000000005",
+      "name": "Feed → Daily PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c3000001-cond-articles",
+              "leftValue": "={{ $json.articleCount }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c3000001-0000-4000-8000-000000000006",
+      "name": "Has PDF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "remarkable-upload"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "c3000001-0000-4000-8000-000000000007",
+      "name": "Upload to reMarkable",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule 07:00 daily": {
+      "main": [
+        [
+          {
+            "node": "Config Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Feeds": {
+      "main": [
+        [
+          {
+            "node": "Loop Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Feeds": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Feed → Daily PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feed → Daily PDF": {
+      "main": [
+        [
+          {
+            "node": "Has PDF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has PDF?": {
+      "main": [
+        [
+          {
+            "node": "Upload to reMarkable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to reMarkable": {
+      "main": [
+        [
+          {
+            "node": "Loop Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "tags": []
+}

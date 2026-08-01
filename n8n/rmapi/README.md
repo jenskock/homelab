@@ -61,8 +61,8 @@ Execute Workflow → `remarkable-upload` with:
 | Field | Required | Example |
 | --- | --- | --- |
 | `binary.data` | yes | PDF |
-| `json.filename` | yes | `nzz-briefing-2026-07-30.pdf` |
-| `json.folder` | no | `/Inbox/NZZ` (default `/Inbox`) |
+| `json.filename` | yes | `NZZ-Briefing.pdf` |
+| `json.folder` | no | `/News/2026-07-30` (default `/Inbox`) |
 
 `folder` must match `^(/[A-Za-z0-9._-]+)+$`.
 Nested folders are created as needed.

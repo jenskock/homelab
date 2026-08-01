@@ -20,6 +20,7 @@ services:
     depends_on:
       - gotenberg
       - rmapi
+      - article-extractor
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`n8n.jenskock.de`)"
@@ -49,8 +50,22 @@ services:
     command:
       - "gotenberg"
       - "--api-timeout=120s"
-      # file:// for HTML uploads; https? for RSS article URL→PDF
       - "--chromium-allow-list=^file:///tmp/.*|^https?://.*"
+    networks:
+      - homelab
+
+  article-extractor:
+    build: ./article-extractor
+    image: article-extractor:1.0.0
+    container_name: n8n-article-extractor
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      GOTENBERG_URL: http://n8n-gotenberg:3000
+      TZ: Europe/Berlin
+      MAX_ARTICLES: "25"
+    depends_on:
+      - gotenberg
     networks:
       - homelab
 

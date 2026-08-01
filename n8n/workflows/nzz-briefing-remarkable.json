@@ -13,7 +13,7 @@
         }
       },
       "id": "a1000001-0000-4000-8000-000000000001",
-      "name": "Schedule 08:00 Mon\u2013Sat",
+      "name": "Schedule 08:00 Mon–Sat",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -68,7 +68,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const STOP_MARKERS = [\n  'F\u00fcr Sie empfohlen',\n  'Neueste Artikel',\n  'Artikel von NZZ Bellevue',\n  'Kostenlose Onlinespiele',\n];\n\nconst SKIP_HEADINGS = new Set([\n  'optimieren sie ihre browsereinstellungen',\n]);\n\nconst SKIP_PARAGRAPH_STARTS = [\n  'teilen',\n  'merken',\n  'nzz.ch ben\u00f6tigt javascript',\n  'bitte passen sie die einstellungen an',\n  'mit dem premium-newsletter',\n];\n\nconst html = $input.first().json.data;\nif (!html) {\n  throw new Error('Empty response from nzz.ch/briefing');\n}\n\nfunction decodeEntities(text) {\n  return text\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&quot;/g, '\"')\n    .replace(/&#39;/g, \"'\")\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&#(\\d+);/g, (_, n) => String.fromCharCode(Number(n)))\n    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));\n}\n\nfunction stripTags(fragment) {\n  return decodeEntities(\n    fragment\n      .replace(/<br\\s*\\/?>/gi, '\\n')\n      .replace(/<[^>]+>/g, '')\n      .replace(/\\s+/g, ' ')\n      .trim(),\n  );\n}\n\nfunction escapeHtml(text) {\n  return text\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n}\n\nconst start = html.search(/<h1\\b/i);\nif (start < 0) {\n  throw new Error('Briefing H1 not found');\n}\n\nlet stop = html.length;\nfor (const marker of STOP_MARKERS) {\n  const idx = html.indexOf(marker, start);\n  if (idx >= 0) stop = Math.min(stop, idx);\n}\nconst chunk = html.slice(start, stop);\n\nconst blocks = [];\nconst tagRe = /<(h[1-3]|p|ul)\\b([^>]*)>([\\s\\S]*?)<\\/\\1>/gi;\nlet match;\nwhile ((match = tagRe.exec(chunk)) !== null) {\n  const tag = match[1].toLowerCase();\n  const inner = match[3];\n\n  if (tag === 'ul') {\n    const items = [];\n    const liRe = /<li\\b[^>]*>([\\s\\S]*?)<\\/li>/gi;\n    let li;\n    while ((li = liRe.exec(inner)) !== null) {\n      const text = stripTags(li[1]);\n      if (text) items.push(text);\n    }\n    if (items.length) blocks.push({ tag: 'ul', items });\n    continue;\n  }\n\n  const text = stripTags(inner);\n  if (!text) continue;\n  const low = text.toLowerCase();\n  if (tag.startsWith('h') && SKIP_HEADINGS.has(low)) continue;\n  if (tag === 'p' && SKIP_PARAGRAPH_STARTS.some((p) => low === p || low.startsWith(p))) continue;\n  blocks.push({ tag, text });\n}\n\nif (!blocks.length) {\n  throw new Error('No briefing content extracted');\n}\n\nconst title = blocks.find((b) => b.tag === 'h1')?.text ?? 'NZZ Briefing';\nconst stamp = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Berlin' }).slice(0, 10);\nconst filename = `nzz-briefing-${stamp}.pdf`;\n\nconst bodyHtml = blocks\n  .map((block) => {\n    if (block.tag === 'ul') {\n      const lis = block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');\n      return `<ul>${lis}</ul>`;\n    }\n    const t = escapeHtml(block.text);\n    if (block.tag === 'h1') return `<h1>${t}</h1>`;\n    if (block.tag === 'h2') return `<h2>${t}</h2>`;\n    if (block.tag === 'h3') return `<h3>${t}</h3>`;\n    return `<p>${t}</p>`;\n  })\n  .join('\\n');\n\nconst documentHtml = `<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n  <meta charset=\"utf-8\" />\n  <title>${escapeHtml(title)}</title>\n  <style>\n    @page { margin: 14mm; }\n    body {\n      margin: 0;\n      color: #111;\n      font-family: Georgia, \"Times New Roman\", serif;\n      font-size: 12.5pt;\n      line-height: 1.45;\n    }\n    h1 {\n      font-size: 22pt;\n      line-height: 1.2;\n      margin: 0 0 0.4em;\n    }\n    h2 {\n      font-size: 14.5pt;\n      line-height: 1.25;\n      margin: 1.35em 0 0.45em;\n      padding-top: 0.2em;\n      border-top: 1px solid #bbb;\n    }\n    h2:first-of-type { border-top: 0; padding-top: 0; }\n    h3 { font-size: 12.5pt; margin: 1em 0 0.35em; }\n    p { margin: 0 0 0.75em; }\n    ul { margin: 0 0 1em; padding-left: 1.2em; }\n    li { margin: 0 0 0.55em; }\n    .meta {\n      font-family: sans-serif;\n      font-size: 9.5pt;\n      color: #444;\n      margin: 0 0 1.4em;\n    }\n  </style>\n</head>\n<body>\n  <p class=\"meta\">NZZ Briefing \u00b7 ${escapeHtml(stamp)} \u00b7 nzz.ch/briefing</p>\n  ${bodyHtml}\n</body>\n</html>`;\n\nconst binary = await this.helpers.prepareBinaryData(\n  Buffer.from(documentHtml, 'utf8'),\n  'index.html',\n  'text/html',\n);\n\nreturn [\n  {\n    json: { title, filename },\n    binary: { data: binary },\n  },\n];\n"
+        "jsCode": "const STOP_MARKERS = [\n  'Für Sie empfohlen',\n  'Neueste Artikel',\n  'Artikel von NZZ Bellevue',\n  'Kostenlose Onlinespiele',\n];\n\nconst SKIP_HEADINGS = new Set([\n  'optimieren sie ihre browsereinstellungen',\n]);\n\nconst SKIP_PARAGRAPH_STARTS = [\n  'teilen',\n  'merken',\n  'nzz.ch benötigt javascript',\n  'bitte passen sie die einstellungen an',\n  'mit dem premium-newsletter',\n];\n\nconst html = $input.first().json.data;\nif (!html) {\n  throw new Error('Empty response from nzz.ch/briefing');\n}\n\nfunction decodeEntities(text) {\n  return text\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&quot;/g, '\"')\n    .replace(/&#39;/g, \"'\")\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&#(\\d+);/g, (_, n) => String.fromCharCode(Number(n)))\n    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));\n}\n\nfunction stripTags(fragment) {\n  return decodeEntities(\n    fragment\n      .replace(/<br\\s*\\/?>/gi, '\\n')\n      .replace(/<[^>]+>/g, '')\n      .replace(/\\s+/g, ' ')\n      .trim(),\n  );\n}\n\nfunction escapeHtml(text) {\n  return text\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n}\n\nconst start = html.search(/<h1\\b/i);\nif (start < 0) {\n  throw new Error('Briefing H1 not found');\n}\n\nlet stop = html.length;\nfor (const marker of STOP_MARKERS) {\n  const idx = html.indexOf(marker, start);\n  if (idx >= 0) stop = Math.min(stop, idx);\n}\nconst chunk = html.slice(start, stop);\n\nconst blocks = [];\nconst tagRe = /<(h[1-3]|p|ul)\\b([^>]*)>([\\s\\S]*?)<\\/\\1>/gi;\nlet match;\nwhile ((match = tagRe.exec(chunk)) !== null) {\n  const tag = match[1].toLowerCase();\n  const inner = match[3];\n\n  if (tag === 'ul') {\n    const items = [];\n    const liRe = /<li\\b[^>]*>([\\s\\S]*?)<\\/li>/gi;\n    let li;\n    while ((li = liRe.exec(inner)) !== null) {\n      const text = stripTags(li[1]);\n      if (text) items.push(text);\n    }\n    if (items.length) blocks.push({ tag: 'ul', items });\n    continue;\n  }\n\n  const text = stripTags(inner);\n  if (!text) continue;\n  const low = text.toLowerCase();\n  if (tag.startsWith('h') && SKIP_HEADINGS.has(low)) continue;\n  if (tag === 'p' && SKIP_PARAGRAPH_STARTS.some((p) => low === p || low.startsWith(p))) continue;\n  blocks.push({ tag, text });\n}\n\nif (!blocks.length) {\n  throw new Error('No briefing content extracted');\n}\n\nconst title = blocks.find((b) => b.tag === 'h1')?.text ?? 'NZZ Briefing';\nconst stamp = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Berlin' }).slice(0, 10);\nconst filename = 'NZZ-Briefing.pdf';\n\nconst bodyHtml = blocks\n  .map((block) => {\n    if (block.tag === 'ul') {\n      const lis = block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');\n      return `<ul>${lis}</ul>`;\n    }\n    const t = escapeHtml(block.text);\n    if (block.tag === 'h1') return `<h1>${t}</h1>`;\n    if (block.tag === 'h2') return `<h2>${t}</h2>`;\n    if (block.tag === 'h3') return `<h3>${t}</h3>`;\n    return `<p>${t}</p>`;\n  })\n  .join('\\n');\n\nconst documentHtml = `<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n  <meta charset=\"utf-8\" />\n  <title>${escapeHtml(title)}</title>\n  <style>\n    @page { margin: 14mm; }\n    body {\n      margin: 0;\n      color: #111;\n      font-family: Georgia, \"Times New Roman\", serif;\n      font-size: 12.5pt;\n      line-height: 1.45;\n    }\n    h1 {\n      font-size: 22pt;\n      line-height: 1.2;\n      margin: 0 0 0.4em;\n    }\n    h2 {\n      font-size: 14.5pt;\n      line-height: 1.25;\n      margin: 1.35em 0 0.45em;\n      padding-top: 0.2em;\n      border-top: 1px solid #bbb;\n    }\n    h2:first-of-type { border-top: 0; padding-top: 0; }\n    h3 { font-size: 12.5pt; margin: 1em 0 0.35em; }\n    p { margin: 0 0 0.75em; }\n    ul { margin: 0 0 1em; padding-left: 1.2em; }\n    li { margin: 0 0 0.55em; }\n    .meta {\n      font-family: sans-serif;\n      font-size: 9.5pt;\n      color: #444;\n      margin: 0 0 1.4em;\n    }\n  </style>\n</head>\n<body>\n  <p class=\"meta\">NZZ Briefing · ${escapeHtml(stamp)} · nzz.ch/briefing</p>\n  ${bodyHtml}\n</body>\n</html>`;\n\nconst binary = await this.helpers.prepareBinaryData(\n  Buffer.from(documentHtml, 'utf8'),\n  'index.html',\n  'text/html',\n);\n\nreturn [\n  {\n    json: { title, filename, stamp },\n    binary: { data: binary },\n  },\n];\n"
       },
       "id": "a1000001-0000-4000-8000-000000000004",
       "name": "Build reMarkable HTML",
@@ -129,7 +129,7 @@
         }
       },
       "id": "a1000001-0000-4000-8000-000000000005",
-      "name": "HTML \u2192 PDF (Gotenberg)",
+      "name": "HTML → PDF (Gotenberg)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -140,7 +140,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const meta = $('Build reMarkable HTML').first().json;\nconst item = $input.first();\n\nitem.json = {\n  ...item.json,\n  title: meta.title,\n  filename: meta.filename,\n  folder: '/News/NZZ',\n};\n\nif (item.binary?.data) {\n  item.binary.data.fileName = meta.filename;\n  item.binary.data.mimeType = 'application/pdf';\n}\n\nreturn [item];\n"
+        "jsCode": "const meta = $('Build reMarkable HTML').first().json;\nconst item = $input.first();\n\nitem.json = {\n  ...item.json,\n  title: meta.title,\n  filename: meta.filename,\n  folder: `/News/${meta.stamp}`,\n};\n\nif (item.binary?.data) {\n  item.binary.data.fileName = meta.filename;\n  item.binary.data.mimeType = 'application/pdf';\n}\n\nreturn [item];\n"
       },
       "id": "a1000001-0000-4000-8000-000000000006",
       "name": "Name PDF",
@@ -175,7 +175,7 @@
     }
   ],
   "connections": {
-    "Schedule 08:00 Mon\u2013Sat": {
+    "Schedule 08:00 Mon–Sat": {
       "main": [
         [
           {
@@ -212,14 +212,14 @@
       "main": [
         [
           {
-            "node": "HTML \u2192 PDF (Gotenberg)",
+            "node": "HTML → PDF (Gotenberg)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTML \u2192 PDF (Gotenberg)": {
+    "HTML → PDF (Gotenberg)": {
       "main": [
         [
           {
