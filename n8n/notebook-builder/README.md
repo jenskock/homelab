@@ -6,6 +6,7 @@ Builds native reMarkable `.rmdoc` notebooks with typed text (via
 ## API
 
 `POST /v1/meeting-rmdoc` — JSON body → `.rmdoc` bytes.
+Notebook name: `yy-mm-dd <title>` (from `start`, else today, Europe/Berlin).
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8081/v1/meeting-rmdoc \

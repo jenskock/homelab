@@ -41,17 +41,31 @@ def sanitize_filename(name: str) -> str:
     return base if base.endswith(".rmdoc") else f"{base}.rmdoc"
 
 
-def format_when(value: str) -> str:
+def parse_datetime(value: str) -> datetime | None:
     raw = value.strip()
     if not raw:
-        return ""
+        return None
     try:
         dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
-        return raw
+        return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=BERLIN)
-    return dt.astimezone(BERLIN).strftime("%d.%m.%Y %H:%M")
+    return dt.astimezone(BERLIN)
+
+
+def format_when(value: str) -> str:
+    dt = parse_datetime(value)
+    if dt is None:
+        return value.strip()
+    return dt.strftime("%d.%m.%Y %H:%M")
+
+
+def meeting_display_name(title: str, start: str = "") -> str:
+    dt = parse_datetime(start) or datetime.now(tz=BERLIN)
+    stamp = dt.strftime("%y-%m-%d")
+    name = title.strip() or "Meeting"
+    return f"{stamp} {name}"
 
 
 def format_meeting_text(
@@ -88,6 +102,7 @@ def build_rmdoc(
     *,
     title: str,
     text: str,
+    start: str = "",
     template: str = "Blank",
     tags: list[str] | None = None,
 ) -> tuple[bytes, str]:
@@ -95,7 +110,8 @@ def build_rmdoc(
     doc_id = str(uuid4())
     page_id = str(uuid4())
     created_ms = str(int(time.time() * 1000))
-    filename = sanitize_filename(title)
+    display_name = meeting_display_name(title, start)
+    filename = sanitize_filename(display_name)
 
     rm_buf = io.BytesIO()
     write_blocks(rm_buf, simple_text_document(text, author_uuid=author))
@@ -131,7 +147,7 @@ def build_rmdoc(
         "pinned": False,
         "source": "",
         "type": "DocumentType",
-        "visibleName": title,
+        "visibleName": display_name,
     }
 
     out = io.BytesIO()

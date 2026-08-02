@@ -48,6 +48,7 @@ def meeting_rmdoc(req: MeetingNotebookRequest) -> Response:
     rmdoc, filename = build_rmdoc(
         title=title,
         text=text,
+        start=req.start.strip(),
         template=req.template.strip() or "Blank",
         tags=tags,
     )

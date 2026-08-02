@@ -39,7 +39,7 @@ reMarkable pairing and the upload workflow:
 | --- | --- | --- |
 | `nzz-mail-remarkable` | IMAP (IDLE + reconnect 15m) | `/News/YYYY-MM-DD/<subject>.pdf` |
 | `rss-to-remarkable` | 07:00 daily | `/News/YYYY-MM-DD/<Publisher>-<Topic>.pdf` |
-| `meeting-to-remarkable` | Webhook `POST /webhook/meeting-to-remarkable` | `/Work/Meetings/<title>.rmdoc` |
+| `meeting-to-remarkable` | Webhook `POST /webhook/meeting-to-remarkable` | `/Work/Meetings/yy-mm-dd-<title>.rmdoc` |
 | `remarkable-upload` | (sub-workflow) | uploads PDF / `.rmdoc` via rmapi |
 
 ### `meeting-to-remarkable`
