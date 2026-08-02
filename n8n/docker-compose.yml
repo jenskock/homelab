@@ -21,6 +21,7 @@ services:
       - gotenberg
       - rmapi
       - article-extractor
+      - notebook-builder
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`n8n.jenskock.de`)"
@@ -66,6 +67,17 @@ services:
       MAX_ARTICLES: "25"
     depends_on:
       - gotenberg
+    networks:
+      - homelab
+
+  notebook-builder:
+    build: ./notebook-builder
+    image: notebook-builder:1.0.0
+    container_name: n8n-notebook-builder
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: Europe/Berlin
     networks:
       - homelab
 

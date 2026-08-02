@@ -25,3 +25,8 @@ Thumbs.db
 *.tmp
 *.log
 
+# Python
+.venv/
+__pycache__/
+*.pyc
+

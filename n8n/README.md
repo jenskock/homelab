@@ -9,6 +9,7 @@ Self-hosted n8n behind Traefik at `n8n.jenskock.de`.
 | `n8n` | `docker.n8n.io/n8nio/n8n:latest` | Workflows |
 | `gotenberg` | `gotenberg/gotenberg:8` | HTML → PDF |
 | `article-extractor` | [`./article-extractor`](article-extractor/) | RSS + consent + article extract → PDF |
+| `notebook-builder` | [`./notebook-builder`](notebook-builder/) | Meeting details → typed-text `.rmdoc` |
 | `rmapi` | [`./rmapi`](rmapi/) | reMarkable Cloud uploads |
 
 ## Host paths
@@ -43,14 +44,12 @@ reMarkable pairing and the upload workflow:
 
 ### `meeting-to-remarkable`
 
-Lined `.rmdoc` notebook (5 pages, `P Lines medium`). Webhook uses n8n
-**Header Auth** credential `Meeting Webhook` (create on import; not in
-`.env`). Optional `folder` (default `/Work/Meetings`).
+One-page `.rmdoc` with typed meeting text (via `notebook-builder`).
+Optional `folder` (default `/Work/Meetings`).
 
 ```bash
 curl -sS -X POST "https://n8n.jenskock.de/webhook/meeting-to-remarkable" \
   -H "Content-Type: application/json" \
-  -H "X-Webhook-Secret: <value from Header Auth credential>" \
   -d '{
     "title": "Q3 Planning",
     "start": "2026-08-03T10:00:00+02:00",

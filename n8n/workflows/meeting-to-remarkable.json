@@ -66,7 +66,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const BLANK_PAGE_B64 = \"cmVNYXJrYWJsZSAubGluZXMgZmlsZSwgdmVyc2lvbj02ICAgICAgICAgIBkAAAAAAQEJAQwTAAAAEMRb8zPDClmwtYgLaCiIswYBAAcAAAAAAQEAHwEBIQExABkAAAAAAAEKFAEAAAAkAAAAADQAAAAARAAAAABUAAAAAB8AAAAAAAENHAYAAAAfAAAvAAAsBQAAAB8AACEBPAUAAAAfAAAhARAAAAAAAQEBHwALLwAAMQFMAwAAAB8AARwAAAAAAQICHwABLAoAAAAfAAAsAgAAAAABPAUAAAAfAAAhASMAAAAAAQICHwALLBEAAAAfAAwsCQAAAAcBTGF5ZXIgMTwFAAAAHwAAIQEaAAAAAAEBBB8AAS8ADT8AAE8AAFQAAAAAbAQAAAACLwAL\";\nconst BASE_CONTENT = {\"cPages\": {\"lastOpened\": {\"timestamp\": \"0:0\", \"value\": \"\"}, \"original\": {\"timestamp\": \"0:0\", \"value\": -1}, \"pages\": [], \"uuids\": [{\"first\": \"c45bf333-c30a-59b0-b588-0b682888b306\", \"second\": 1}]}, \"coverPageNumber\": -1, \"customZoomCenterX\": 0, \"customZoomCenterY\": 936, \"customZoomOrientation\": \"portrait\", \"customZoomPageHeight\": 1872, \"customZoomPageWidth\": 1404, \"customZoomScale\": 1, \"documentMetadata\": {}, \"extraMetadata\": {}, \"fileType\": \"notebook\", \"fontName\": \"\", \"formatVersion\": 2, \"lineHeight\": -1, \"orientation\": \"portrait\", \"pageCount\": 1, \"pageTags\": [], \"tags\": [], \"textAlignment\": \"justify\", \"textScale\": 1, \"zoomMode\": \"bestFit\"};\nconst STENCIL_AUTHOR_UUID_OFFSET = 58;\nconst PAGE_COUNT = 5;\nconst TEMPLATE = 'P Lines medium';\nconst ALPHA = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';\n\nconst meeting = $input.first().json;\n\nfunction uuid() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {\n    const r = (Math.random() * 16) | 0;\n    const v = c === 'x' ? r : (r & 0x3) | 0x8;\n    return v.toString(16);\n  });\n}\n\nfunction idxKey(i) {\n  const num = 2330 + i - 1;\n  return `${ALPHA[Math.floor(num / 62)]}${ALPHA[num % 62]}`;\n}\n\nfunction crc32(buf) {\n  let c = ~0;\n  for (let i = 0; i < buf.length; i++) {\n    c ^= buf[i];\n    for (let k = 0; k < 8; k++) {\n      c = c & 1 ? (0xedb88320 ^ (c >>> 1)) : c >>> 1;\n    }\n  }\n  return ~c >>> 0;\n}\n\nfunction u16(n) {\n  const b = Buffer.alloc(2);\n  b.writeUInt16LE(n, 0);\n  return b;\n}\n\nfunction u32(n) {\n  const b = Buffer.alloc(4);\n  b.writeUInt32LE(n, 0);\n  return b;\n}\n\nfunction zipStore(files) {\n  const localParts = [];\n  const centralParts = [];\n  let offset = 0;\n  for (const file of files) {\n    const nameBuf = Buffer.from(file.name, 'utf8');\n    const data = Buffer.from(file.data);\n    const crc = crc32(data);\n    const local = Buffer.concat([\n      Buffer.from('PK\\x03\\x04'),\n      u16(20),\n      u16(0),\n      u16(0),\n      u16(0),\n      u16(0),\n      u32(crc),\n      u32(data.length),\n      u32(data.length),\n      u16(nameBuf.length),\n      u16(0),\n      nameBuf,\n      data,\n    ]);\n    const central = Buffer.concat([\n      Buffer.from('PK\\x01\\x02'),\n      u16(20),\n      u16(20),\n      u16(0),\n      u16(0),\n      u16(0),\n      u16(0),\n      u32(crc),\n      u32(data.length),\n      u32(data.length),\n      u16(nameBuf.length),\n      u16(0),\n      u16(0),\n      u16(0),\n      u16(0),\n      u32(0),\n      u32(offset),\n      nameBuf,\n    ]);\n    localParts.push(local);\n    centralParts.push(central);\n    offset += local.length;\n  }\n  const central = Buffer.concat(centralParts);\n  const local = Buffer.concat(localParts);\n  const end = Buffer.concat([\n    Buffer.from('PK\\x05\\x06'),\n    u16(0),\n    u16(0),\n    u16(files.length),\n    u16(files.length),\n    u32(central.length),\n    u32(local.length),\n    u16(0),\n  ]);\n  return Buffer.concat([local, central, end]);\n}\n\nfunction sanitizeFilename(name) {\n  const ascii = String(name)\n    .replace(/\u00df/g, 'ss')\n    .replace(/\u1e9e/g, 'SS')\n    .replace(/\u00e4/g, 'ae')\n    .replace(/\u00f6/g, 'oe')\n    .replace(/\u00fc/g, 'ue')\n    .replace(/\u00c4/g, 'Ae')\n    .replace(/\u00d6/g, 'Oe')\n    .replace(/\u00dc/g, 'Ue')\n    .normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '');\n  const base =\n    ascii\n      .replace(/[^A-Za-z0-9._-]+/g, '-')\n      .replace(/-+/g, '-')\n      .replace(/^[-.]+|[-.]+$/g, '') || 'Meeting';\n  return base.endsWith('.rmdoc') ? base : `${base}.rmdoc`;\n}\n\nfunction berlinDateTime(date) {\n  return new Intl.DateTimeFormat('de-DE', {\n    timeZone: 'Europe/Berlin',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n    hour: '2-digit',\n    minute: '2-digit',\n  }).format(date);\n}\n\nfunction patchStencil(authorUuid) {\n  const page = Buffer.from(BLANK_PAGE_B64, 'base64');\n  const hex = authorUuid.replace(/-/g, '');\n  for (let i = 0; i < 16; i++) {\n    page[STENCIL_AUTHOR_UUID_OFFSET + i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);\n  }\n  return page;\n}\n\nconst title = String(meeting.title || 'Meeting');\nconst folder = String(meeting.folder || '/Work/Meetings');\nconst filename = sanitizeFilename(title);\nconst start = meeting.start ? new Date(meeting.start) : null;\nconst end = meeting.end ? new Date(meeting.end) : null;\nconst startOk = start && !Number.isNaN(start.getTime());\nconst endOk = end && !Number.isNaN(end.getTime());\n\nconst tags = ['meeting'];\nif (startOk && endOk) tags.push(`${berlinDateTime(start)} \u2013 ${berlinDateTime(end)}`);\nelse if (startOk) tags.push(berlinDateTime(start));\nif (meeting.location) tags.push(String(meeting.location));\nif (Array.isArray(meeting.attendees) && meeting.attendees.length) {\n  tags.push(meeting.attendees.join(', ').slice(0, 120));\n}\nif (meeting.agenda) tags.push(`Agenda: ${String(meeting.agenda).replace(/\\s+/g, ' ').slice(0, 160)}`);\nif (meeting.notes) tags.push(`Notes: ${String(meeting.notes).replace(/\\s+/g, ' ').slice(0, 160)}`);\n\nconst authorUuid = uuid();\nconst docId = uuid();\nconst createdMs = String(Date.now());\nconst pages = [];\nconst zipFiles = [];\n\nfor (let i = 1; i <= PAGE_COUNT; i++) {\n  const pageId = uuid();\n  pages.push({\n    id: pageId,\n    idx: { timestamp: '1:2', value: idxKey(i) },\n    modifed: createdMs,\n    template: { timestamp: '1:1', value: TEMPLATE },\n  });\n  zipFiles.push({\n    name: `${docId}/${pageId}.rm`,\n    data: patchStencil(authorUuid),\n  });\n}\n\nconst content = {\n  ...BASE_CONTENT,\n  cPages: {\n    ...BASE_CONTENT.cPages,\n    pages,\n    lastOpened: { timestamp: '1:1', value: pages[0].id },\n    uuids: [{ first: authorUuid, second: 1 }],\n  },\n  pageCount: PAGE_COUNT,\n  tags: tags.map((name) => ({ name })),\n};\n\nconst metadata = {\n  createdTime: createdMs,\n  lastModified: createdMs,\n  lastOpened: '0',\n  lastOpenedPage: -1,\n  new: true,\n  parent: '',\n  pinned: false,\n  source: '',\n  type: 'DocumentType',\n  visibleName: title,\n};\n\nzipFiles.unshift(\n  { name: `${docId}.content`, data: Buffer.from(JSON.stringify(content), 'utf8') },\n  { name: `${docId}.metadata`, data: Buffer.from(JSON.stringify(metadata), 'utf8') },\n);\n\nconst rmdoc = zipStore(zipFiles);\nconst binary = await this.helpers.prepareBinaryData(rmdoc, filename, 'application/zip');\n\nreturn [\n  {\n    json: {\n      title,\n      filename,\n      folder,\n      viaWebhook: Boolean(meeting.viaWebhook),\n    },\n    binary: { data: binary },\n  },\n];\n"
+        "jsCode": "const BUILDER = 'http://notebook-builder:8080';\nconst meeting = $input.first().json;\n\nconst body = {\n  title: String(meeting.title || '').trim(),\n  start: String(meeting.start || '').trim(),\n  end: String(meeting.end || '').trim(),\n  location: String(meeting.location || '').trim(),\n  attendees: Array.isArray(meeting.attendees) ? meeting.attendees : [],\n  agenda: String(meeting.agenda || ''),\n  notes: String(meeting.notes || ''),\n  template: 'Blank',\n};\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${BUILDER}/v1/meeting-rmdoc`,\n  headers: { 'Content-Type': 'application/json' },\n  body,\n  encoding: 'arraybuffer',\n  returnFullResponse: true,\n  timeout: 60000,\n});\n\nconst status = response.statusCode || response.status || 0;\nif (status < 200 || status >= 300) {\n  const detail = Buffer.isBuffer(response.body)\n    ? response.body.toString('utf8')\n    : String(response.body ?? '');\n  throw new Error(`notebook-builder failed (status=${status}): ${detail.slice(0, 500)}`);\n}\n\nfunction asBuffer(payload) {\n  if (Buffer.isBuffer(payload)) return payload;\n  if (payload?.type === 'Buffer' && Array.isArray(payload.data)) {\n    return Buffer.from(payload.data);\n  }\n  if (payload instanceof ArrayBuffer) return Buffer.from(payload);\n  if (ArrayBuffer.isView(payload)) {\n    return Buffer.from(payload.buffer, payload.byteOffset, payload.byteLength);\n  }\n  if (typeof payload === 'string') return Buffer.from(payload, 'binary');\n  throw new Error(`Unexpected rmdoc payload type: ${typeof payload}`);\n}\n\nconst rmdoc = asBuffer(response.body);\nif (rmdoc.length < 100) {\n  throw new Error(`notebook-builder returned empty rmdoc (${rmdoc.length} bytes)`);\n}\n\nconst headers = response.headers || {};\nconst filename =\n  String(headers['x-filename'] || headers['X-Filename'] || '').trim() ||\n  `${body.title.replace(/[^A-Za-z0-9._-]+/g, '-') || 'Meeting'}.rmdoc`;\n\nconst binary = await this.helpers.prepareBinaryData(rmdoc, filename, 'application/zip');\n\nreturn [\n  {\n    json: {\n      title: body.title,\n      filename,\n      folder: String(meeting.folder || '/Work/Meetings'),\n      viaWebhook: Boolean(meeting.viaWebhook),\n    },\n    binary: { data: binary },\n  },\n];\n"
       },
       "id": "d4000001-0000-4000-8000-000000000005",
       "name": "Build Meeting Notebook",
@@ -74,20 +74,6 @@
       "typeVersion": 2,
       "position": [
         720,
-        100
-      ]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const meta = $('Build Meeting Notebook').first().json;\nconst item = $input.first();\n\nitem.json = {\n  ...item.json,\n  title: meta.title,\n  filename: meta.filename,\n  folder: meta.folder,\n  viaWebhook: meta.viaWebhook,\n};\n\nif (item.binary?.data) {\n  item.binary.data.fileName = meta.filename;\n  item.binary.data.mimeType = item.binary.data.mimeType || 'application/zip';\n}\n\nreturn [item];\n"
-      },
-      "id": "d4000001-0000-4000-8000-000000000007",
-      "name": "Name Document",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        960,
         100
       ]
     },
@@ -125,7 +111,7 @@
           "conditions": [
             {
               "id": "via-webhook",
-              "leftValue": "={{ $('Name Document').item.json.viaWebhook }}",
+              "leftValue": "={{ $('Build Meeting Notebook').item.json.viaWebhook }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -150,7 +136,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'uploaded', filename: $('Name Document').item.json.filename, folder: $('Name Document').item.json.folder }) }}",
+        "responseBody": "={{ JSON.stringify({ status: 'uploaded', filename: $('Build Meeting Notebook').item.json.filename, folder: $('Build Meeting Notebook').item.json.folder }) }}",
         "options": {}
       },
       "id": "d4000001-0000-4000-8000-000000000010",
@@ -209,17 +195,6 @@
       ]
     },
     "Build Meeting Notebook": {
-      "main": [
-        [
-          {
-            "node": "Name Document",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Name Document": {
       "main": [
         [
           {
