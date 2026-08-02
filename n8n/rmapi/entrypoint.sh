@@ -37,12 +37,12 @@ ensure_remote_folder() {
   done
 }
 
-process_pdf() {
-  pdf="$1"
-  base=$(basename "$pdf")
-  meta="${pdf}.meta.json"
+process_file() {
+  file="$1"
+  base=$(basename "$file")
+  meta="${file}.meta.json"
   errfile="${FAILED}/${base}.err"
-  upload_path="$pdf"
+  upload_path="$file"
 
   if [ ! -f "$meta" ]; then
     log "skip ${base}: waiting for meta"
@@ -50,7 +50,7 @@ process_pdf() {
   fi
 
   now=$(date +%s)
-  mtime=$(stat -c %Y "$pdf")
+  mtime=$(stat -c %Y "$file")
   age=$((now - mtime))
   if [ "$age" -lt "$MIN_AGE_SECONDS" ]; then
     log "skip ${base}: too new (${age}s)"
@@ -68,14 +68,14 @@ process_pdf() {
     msg="invalid folder in meta: ${folder}"
     log "FAIL ${base}: ${msg}"
     echo "$msg" >"$errfile"
-    mv -f "$pdf" "$FAILED/"
+    mv -f "$file" "$FAILED/"
     mv -f "$meta" "$FAILED/"
     return 0
   fi
 
   if [ "$name" != "$base" ]; then
     upload_path="/tmp/${name}"
-    cp -f "$pdf" "$upload_path"
+    cp -f "$file" "$upload_path"
   fi
 
   log "upload ${base} as ${name} -> ${folder}"
@@ -91,28 +91,28 @@ process_pdf() {
   fi
   set -e
 
-  if [ "$upload_path" != "$pdf" ]; then
+  if [ "$upload_path" != "$file" ]; then
     rm -f "$upload_path"
   fi
 
   if [ "$put_rc" -eq 0 ]; then
     log "OK ${base}"
-    mv -f "$pdf" "$DONE/"
+    mv -f "$file" "$DONE/"
     mv -f "$meta" "$DONE/"
     rm -f "$errfile"
   else
     log "FAIL ${base}: ${out}"
     echo "$out" >"$errfile"
-    mv -f "$pdf" "$FAILED/"
+    mv -f "$file" "$FAILED/"
     mv -f "$meta" "$FAILED/"
   fi
 }
 
 log "rmapi watch started (outbox=${OUTBOX})"
 while true; do
-  for pdf in "$OUTBOX"/*.pdf; do
-    [ -f "$pdf" ] || continue
-    process_pdf "$pdf" || log "error processing ${pdf}"
+  for file in "$OUTBOX"/*.pdf "$OUTBOX"/*.rmdoc "$OUTBOX"/*.rmn "$OUTBOX"/*.zip; do
+    [ -f "$file" ] || continue
+    process_file "$file" || log "error processing ${file}"
   done
   sleep "$POLL_SECONDS"
 done

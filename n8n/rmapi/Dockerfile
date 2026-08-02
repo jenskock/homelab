@@ -6,7 +6,7 @@ ARG TARGETARCH
 ARG RMAPI_VERSION=v0.0.34
 
 RUN test -n "$TARGETARCH" \
-  && apk add --no-cache ca-certificates curl libc6-compat \
+  && apk add --no-cache ca-certificates curl libc6-compat jq zip \
   && curl -fsSL -o /tmp/rmapi.tgz \
     "https://github.com/ddvk/rmapi/releases/download/${RMAPI_VERSION}/rmapi-linux-${TARGETARCH}.tar.gz" \
   && tar -xzf /tmp/rmapi.tgz -C /usr/local/bin rmapi \
@@ -21,7 +21,10 @@ RUN addgroup -g 1000 node \
   && chown -R node:node /data /home/node
 
 COPY entrypoint.sh /usr/local/bin/rmapi-watch
-RUN chmod 755 /usr/local/bin/rmapi-watch
+COPY notebook/ /usr/local/share/rmapi-notebook/
+RUN chmod 755 /usr/local/bin/rmapi-watch \
+  /usr/local/share/rmapi-notebook/build-rmdoc.sh \
+  && ln -sf /usr/local/share/rmapi-notebook/build-rmdoc.sh /usr/local/bin/build-rmdoc
 
 USER node
 WORKDIR /home/node

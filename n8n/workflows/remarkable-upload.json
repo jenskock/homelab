@@ -40,7 +40,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const FOLDER_RE = /^(\\/[A-Za-z0-9._-]+)+$/;\nconst STAGING = '/home/node/.n8n-files';\n\nconst item = $input.first();\nif (!item.binary?.data) {\n  throw new Error('Missing binary.data');\n}\n\nconst filenameRaw = String(item.json.filename ?? item.binary.data.fileName ?? 'document.pdf');\nconst filename = filenameRaw.split(/[/\\\\]/).pop() || 'document.pdf';\n\nconst folder = String(item.json.folder ?? '/Inbox').replace(/\\/$/, '') || '/Inbox';\nif (!FOLDER_RE.test(folder)) {\n  throw new Error(`Invalid folder \"${folder}\". Expected /Inbox or /Inbox/NZZ`);\n}\n\nconst safeName =\n  filename.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^[-.]+|[-.]+$/g, '') ||\n  'document.pdf';\nconst base = `upload-${$execution.id}-${safeName}`;\nconst pdfName = base.endsWith('.pdf') ? base : `${base}.pdf`;\n\nconst outboxPdf = `${STAGING}/outbox/${pdfName}`;\nconst outboxMeta = `${outboxPdf}.meta.json`;\nconst donePdf = `${STAGING}/done/${pdfName}`;\nconst doneMeta = `${donePdf}.meta.json`;\nconst failedPdf = `${STAGING}/failed/${pdfName}`;\nconst failedMeta = `${failedPdf}.meta.json`;\nconst failedErr = `${STAGING}/failed/${pdfName}.err`;\n\nconst metaBinary = await this.helpers.prepareBinaryData(\n  Buffer.from(JSON.stringify({ folder, name: filename }), 'utf8'),\n  `${pdfName}.meta.json`,\n  'application/json',\n);\n\nconst pdfBinary = item.binary.data;\npdfBinary.fileName = pdfName;\npdfBinary.mimeType = pdfBinary.mimeType || 'application/pdf';\n\nreturn [\n  {\n    json: {\n      filename,\n      folder,\n      base: pdfName,\n      outboxPdf,\n      outboxMeta,\n      donePdf,\n      doneMeta,\n      failedPdf,\n      failedMeta,\n      failedErr,\n    },\n    binary: {\n      data: pdfBinary,\n      meta: metaBinary,\n    },\n  },\n];\n"
+        "jsCode": "const FOLDER_RE = /^(\\/[A-Za-z0-9._-]+)+$/;\nconst STAGING = '/home/node/.n8n-files';\nconst ALLOWED_EXT = ['.pdf', '.rmdoc', '.rmn', '.zip'];\n\nconst item = $input.first();\nif (!item.binary?.data) {\n  throw new Error('Missing binary.data');\n}\n\nconst filenameRaw = String(item.json.filename ?? item.binary.data.fileName ?? 'document.pdf');\nconst filename = filenameRaw.split(/[/\\\\]/).pop() || 'document.pdf';\n\nconst folder = String(item.json.folder ?? '/Inbox').replace(/\\/$/, '') || '/Inbox';\nif (!FOLDER_RE.test(folder)) {\n  throw new Error(`Invalid folder \"${folder}\". Expected /Inbox or /Inbox/NZZ`);\n}\n\nconst lower = filename.toLowerCase();\nconst ext = ALLOWED_EXT.find((e) => lower.endsWith(e)) || '.pdf';\nconst stem =\n  filename\n    .replace(/\\.[^.]+$/, '')\n    .replace(/[^A-Za-z0-9._-]+/g, '-')\n    .replace(/-+/g, '-')\n    .replace(/^[-.]+|[-.]+$/g, '') || 'document';\nconst displayName = lower.endsWith(ext) ? filename : `${stem}${ext}`;\nconst base = `upload-${$execution.id}-${stem}${ext}`;\n\nconst outboxFile = `${STAGING}/outbox/${base}`;\nconst outboxMeta = `${outboxFile}.meta.json`;\nconst doneFile = `${STAGING}/done/${base}`;\nconst doneMeta = `${doneFile}.meta.json`;\nconst failedFile = `${STAGING}/failed/${base}`;\nconst failedMeta = `${failedFile}.meta.json`;\nconst failedErr = `${STAGING}/failed/${base}.err`;\n\nconst mimeByExt = {\n  '.pdf': 'application/pdf',\n  '.rmdoc': 'application/zip',\n  '.rmn': 'application/zip',\n  '.zip': 'application/zip',\n};\n\nconst metaBinary = await this.helpers.prepareBinaryData(\n  Buffer.from(JSON.stringify({ folder, name: displayName }), 'utf8'),\n  `${base}.meta.json`,\n  'application/json',\n);\n\nconst fileBinary = item.binary.data;\nfileBinary.fileName = base;\nfileBinary.mimeType = fileBinary.mimeType || mimeByExt[ext];\n\nreturn [\n  {\n    json: {\n      filename: displayName,\n      folder,\n      base,\n      outboxPdf: outboxFile,\n      outboxMeta,\n      donePdf: doneFile,\n      doneMeta,\n      failedPdf: failedFile,\n      failedMeta,\n      failedErr,\n    },\n    binary: {\n      data: fileBinary,\n      meta: metaBinary,\n    },\n  },\n];\n"
       },
       "id": "b2000001-0000-4000-8000-000000000004",
       "name": "Prepare Staging Path",
@@ -75,7 +75,7 @@
         "options": {}
       },
       "id": "b2000001-0000-4000-8000-000000000006",
-      "name": "Write PDF",
+      "name": "Write File",
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1,
       "position": [
@@ -147,14 +147,14 @@
       "main": [
         [
           {
-            "node": "Write PDF",
+            "node": "Write File",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Write PDF": {
+    "Write File": {
       "main": [
         [
           {

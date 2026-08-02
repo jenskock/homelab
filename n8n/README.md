@@ -38,4 +38,26 @@ reMarkable pairing and the upload workflow:
 | --- | --- | --- |
 | `nzz-mail-remarkable` | IMAP (IDLE + reconnect 15m) | `/News/YYYY-MM-DD/<subject>.pdf` |
 | `rss-to-remarkable` | 07:00 daily | `/News/YYYY-MM-DD/<Publisher>-<Topic>.pdf` |
-| `remarkable-upload` | (sub-workflow) | uploads PDF via rmapi |
+| `meeting-to-remarkable` | Webhook `POST /webhook/meeting-to-remarkable` | `/Work/Meetings/<title>.rmdoc` |
+| `remarkable-upload` | (sub-workflow) | uploads PDF / `.rmdoc` via rmapi |
+
+### `meeting-to-remarkable`
+
+Lined `.rmdoc` notebook (5 pages, `P Lines medium`). Webhook uses n8n
+**Header Auth** credential `Meeting Webhook` (create on import; not in
+`.env`). Optional `folder` (default `/Work/Meetings`).
+
+```bash
+curl -sS -X POST "https://n8n.jenskock.de/webhook/meeting-to-remarkable" \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Secret: <value from Header Auth credential>" \
+  -d '{
+    "title": "Q3 Planning",
+    "start": "2026-08-03T10:00:00+02:00",
+    "end": "2026-08-03T11:00:00+02:00",
+    "attendees": ["Alice", "Bob"],
+    "location": "Zoom",
+    "agenda": "1. Goals\n2. Risks",
+    "notes": "Optional freeform notes"
+  }'
+```

@@ -3,8 +3,10 @@
 Drop-folder worker used by n8n to upload files to reMarkable Cloud
 via [ddvk/rmapi](https://github.com/ddvk/rmapi).
 
-n8n writes a PDF + `.meta.json` into a shared staging volume; this
+n8n writes a document + `.meta.json` into a shared staging volume; this
 container watches the outbox and runs `rmapi put --force`.
+
+Supported outbox extensions: `.pdf`, `.rmdoc`, `.rmn`, `.zip`.
 
 ## Layout
 
@@ -60,15 +62,24 @@ Execute Workflow → `remarkable-upload` with:
 
 | Field | Required | Example |
 | --- | --- | --- |
-| `binary.data` | yes | PDF |
-| `json.filename` | yes | `NZZ-Briefing.pdf` |
+| `binary.data` | yes | PDF or `.rmdoc` bytes |
+| `json.filename` | yes | `NZZ-Briefing.pdf` or `Q3-Planning.rmdoc` |
 | `json.folder` | no | `/News/2026-07-30` (default `/Inbox`) |
 
 `folder` must match `^(/[A-Za-z0-9._-]+)+$`.
 Nested folders are created as needed.
 
-Sidecar: `outbox/<base>.pdf` +
-`outbox/<base>.pdf.meta.json` → `{ "folder", "name" }`.
+Sidecar: `outbox/<base>.<ext>` +
+`outbox/<base>.<ext>.meta.json` → `{ "folder", "name" }`.
+
+## Native notebooks
+
+[`notebook/`](notebook/) — blank-page stencil + `build-rmdoc` (in image):
+
+```bash
+build-rmdoc "Meeting Title" /tmp/meeting.rmdoc 5 "P Lines medium"
+rmapi put --force -- /tmp/meeting.rmdoc /Work/Meetings
+```
 
 ## Troubleshoot
 
@@ -95,5 +106,6 @@ then re-run rmapi login.
 Verified: fork `ddvk/rmapi` v0.0.34 asset names, pairing URL,
 `RMAPI_CONFIG`, `put --force` overwrite.
 
-Best-effort: one-time code TTL (~5 min), device-token lifetime.
+Best-effort: one-time code TTL (~5 min), device-token lifetime,
+`.rmdoc` / `.rmn` upload via the same `put` path as PDF.
 amd64 release binary is glibc-linked; image installs `libc6-compat`.
