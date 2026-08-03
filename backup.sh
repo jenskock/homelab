@@ -19,11 +19,6 @@ OPT_SOURCES=(
   /opt/paperless
 )
 
-DOCKER_VOLUMES=(
-  shell_ssh
-  shell_tmux
-)
-
 if [ "$(id -u)" -ne 0 ]; then
   echo "Run as root (sudo)."
   exit 1
@@ -51,19 +46,6 @@ for src in "${OPT_SOURCES[@]}"; do
   fi
   echo "Backing up ${src}"
   tar --exclude="$EXCLUDE_PATTERN" -czf "${BACKUP_DIR}/${name}.tar.gz" -C "$(dirname "$src")" "$name"
-done
-
-for volume in "${DOCKER_VOLUMES[@]}"; do
-  if ! docker volume inspect "$volume" >/dev/null 2>&1; then
-    echo "Skip volume ${volume}: not found"
-    continue
-  fi
-  echo "Backing up volume ${volume}"
-  docker run --rm \
-    -v "${volume}:/volume:ro" \
-    -v "${BACKUP_DIR}:/backup" \
-    alpine:3.21 \
-    tar -czf "/backup/volume_${volume}.tar.gz" -C /volume .
 done
 
 count="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
