@@ -5,7 +5,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "meeting-to-remarkable",
-        "responseMode": "responseNode",
+        "responseMode": "lastNode",
         "options": {},
         "authentication": "headerAuth"
       },
@@ -95,57 +95,22 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        1200,
+        960,
         100
       ]
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "via-webhook",
-              "leftValue": "={{ $('Build Meeting Notebook').item.json.viaWebhook }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
+        "mode": "runOnceForAllItems",
+        "jsCode": "const meta = $('Build Meeting Notebook').first().json;\nreturn [\n  {\n    json: {\n      status: 'uploaded',\n      filename: meta.filename,\n      folder: meta.folder,\n    },\n  },\n];\n"
       },
-      "id": "d4000001-0000-4000-8000-000000000009",
-      "name": "Via Webhook?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
+      "id": "d4000001-0000-4000-8000-000000000011",
+      "name": "Done",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1440,
         100
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'uploaded', filename: $('Build Meeting Notebook').item.json.filename, folder: $('Build Meeting Notebook').item.json.folder }) }}",
-        "options": {}
-      },
-      "id": "d4000001-0000-4000-8000-000000000010",
-      "name": "Respond",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        1680,
-        0
       ]
     }
   ],
@@ -209,23 +174,11 @@
       "main": [
         [
           {
-            "node": "Via Webhook?",
+            "node": "Done",
             "type": "main",
             "index": 0
           }
         ]
-      ]
-    },
-    "Via Webhook?": {
-      "main": [
-        [
-          {
-            "node": "Respond",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
       ]
     }
   },
