@@ -1,7 +1,7 @@
 # Remote Shell
 
 Browser terminal at `shell.jenskock.de`.
-ttyd on `127.0.0.1:7681` with HTTP basic auth.
+ttyd with HTTP basic auth; reachable by cloudflared on the `homelab` network.
 
 ## Services
 
@@ -27,5 +27,5 @@ chmod 600 /opt/shell/.env
 Portainer → Stacks → Add stack → Compose path `shell/docker-compose.yml`
 (builds required).
 
-cloudflared on the same host needs a public hostname pointing at
-`http://localhost:7681`.
+cloudflared public hostname service: `http://shell-ttyd:7681`
+(not `localhost` — cloudflared runs in Docker).

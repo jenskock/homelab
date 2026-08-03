@@ -24,11 +24,12 @@ services:
       - shell-sshd
     env_file:
       - /opt/shell/.env
-    ports:
-      - "127.0.0.1:7681:7681"
     volumes:
       - shell_ssh:/home/jens/.ssh:ro
       - shell_tmux:/home/jens/tmux
+    networks:
+      - default
+      - homelab
     healthcheck:
       test:
         [
@@ -43,3 +44,8 @@ services:
 volumes:
   shell_ssh:
   shell_tmux:
+
+networks:
+  homelab:
+    external: true
+    name: homelab
