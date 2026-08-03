@@ -2,11 +2,12 @@ FROM tsl0922/ttyd:latest
 
 USER root
 
+# ubuntu:24.04 (ttyd base) already has UID/GID 1000 as user "ubuntu".
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssh-client tmux wget ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
-  && (getent group jens >/dev/null || groupadd -g 1000 jens) \
-  && (getent passwd jens >/dev/null || useradd -u 1000 -g jens -ms /bin/bash -d /home/jens jens) \
+  && groupmod -n jens ubuntu \
+  && usermod -l jens -d /home/jens -m ubuntu \
   && mkdir -p /home/jens/.ssh /home/jens/tmux \
   && chown -R jens:jens /home/jens
 
