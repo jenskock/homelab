@@ -1,0 +1,45 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "3"
+
+services:
+  shell-sshd:
+    build: ./sshd
+    image: shell-sshd:1.0.0
+    container_name: shell-sshd
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - shell_ssh:/home/jens/.ssh
+
+  ttyd:
+    build: ./ttyd
+    image: shell-ttyd:1.0.0
+    container_name: shell-ttyd
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - shell-sshd
+    env_file:
+      - /opt/shell/.env
+    ports:
+      - "127.0.0.1:7681:7681"
+    volumes:
+      - shell_ssh:/home/jens/.ssh:ro
+      - shell_tmux:/home/jens/tmux
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O /dev/null --user=\"$$TTYD_USER\" --password=\"$$TTYD_PASSWORD\" http://127.0.0.1:7681/ || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  shell_ssh:
+  shell_tmux:
