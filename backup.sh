@@ -17,7 +17,6 @@ OPT_SOURCES=(
   /opt/n8n
   /opt/open-webui
   /opt/paperless
-  /opt/kavita
 )
 
 if [ "$(id -u)" -ne 0 ]; then
