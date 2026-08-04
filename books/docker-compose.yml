@@ -1,0 +1,54 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  kavita:
+    image: jvmilazz0/kavita:latest
+    container_name: kavita
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      TZ: Europe/Berlin
+    volumes:
+      - /mnt/synology_backup/jens/ebooks/config:/kavita/config
+      - /mnt/synology_backup/jens/ebooks/books:/books
+    networks:
+      - homelab
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kavita.rule=Host(`books.jenskock.de`)"
+      - "traefik.http.routers.kavita.entrypoints=web"
+      - "traefik.http.services.kavita.loadbalancer.server.port=5000"
+
+  books-processing:
+    image: crocodilestick/calibre-web-automated:latest
+    container_name: books-processing
+    restart: unless-stopped
+    logging: *default-logging
+    env_file:
+      - /opt/books/.env
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Europe/Berlin
+      NETWORK_SHARE_MODE: "true"
+      TRUSTED_PROXY_COUNT: "2"
+    volumes:
+      - /opt/books/config:/config
+      - /mnt/synology_backup/jens/ebooks/inbox:/cwa-book-ingest
+      - /mnt/synology_backup/jens/ebooks/books/books:/calibre-library
+    networks:
+      - homelab
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.books-processing.rule=Host(`books-processing.jenskock.de`)"
+      - "traefik.http.routers.books-processing.entrypoints=web"
+      - "traefik.http.services.books-processing.loadbalancer.server.port=8083"
+
+networks:
+  homelab:
+    external: true
+    name: homelab
