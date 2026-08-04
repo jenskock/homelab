@@ -5,27 +5,9 @@ x-logging: &default-logging
     max-file: "3"
 
 services:
-  kavita:
-    image: jvmilazz0/kavita:latest
-    container_name: kavita
-    restart: unless-stopped
-    logging: *default-logging
-    environment:
-      TZ: Europe/Berlin
-    volumes:
-      - /mnt/synology_backup/jens/ebooks/config:/kavita/config
-      - /mnt/synology_backup/jens/ebooks/books:/books
-    networks:
-      - homelab
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.kavita.rule=Host(`books.jenskock.de`)"
-      - "traefik.http.routers.kavita.entrypoints=web"
-      - "traefik.http.services.kavita.loadbalancer.server.port=5000"
-
-  books-processing:
+  books:
     image: crocodilestick/calibre-web-automated:latest
-    container_name: books-processing
+    container_name: books
     restart: unless-stopped
     logging: *default-logging
     env_file:
@@ -44,9 +26,9 @@ services:
       - homelab
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.books-processing.rule=Host(`books-processing.jenskock.de`)"
-      - "traefik.http.routers.books-processing.entrypoints=web"
-      - "traefik.http.services.books-processing.loadbalancer.server.port=8083"
+      - "traefik.http.routers.books.rule=Host(`books.jenskock.de`)"
+      - "traefik.http.routers.books.entrypoints=web"
+      - "traefik.http.services.books.loadbalancer.server.port=8083"
 
 networks:
   homelab:
