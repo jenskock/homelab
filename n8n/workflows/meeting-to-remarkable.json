@@ -1,116 +1,112 @@
 {
-  "name": "meeting-to-remarkable",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "meeting-to-remarkable",
+        "authentication": "headerAuth",
         "responseMode": "lastNode",
-        "options": {},
-        "authentication": "headerAuth"
+        "options": {}
       },
-      "id": "d4000001-0000-4000-8000-000000000001",
+      "id": "ffb3da53-164f-488b-bc32-17055a6f9fcd",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        0,
-        0
+        2192,
+        272
       ],
       "webhookId": "meeting-to-remarkable",
       "credentials": {
         "httpHeaderAuth": {
-          "name": "Meeting Webhook"
+          "id": "owki1z9exaVxuILx",
+          "name": "Header Auth account"
         }
       }
     },
     {
       "parameters": {},
-      "id": "d4000001-0000-4000-8000-000000000002",
+      "id": "f343b6d3-f998-48f3-8f68-dfedae80e8a6",
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        0,
-        220
+        1968,
+        80
       ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "return [\n  {\n    json: {\n      _smokeTest: true,\n      title: 'Q3 Planning',\n      start: '2026-08-03T10:00:00+02:00',\n      end: '2026-08-03T11:00:00+02:00',\n      attendees: ['Alice', 'Bob'],\n      location: 'Zoom',\n      agenda: '1. Goals\\n2. Risks',\n      notes: 'Optional freeform notes',\n      folder: '/Work/Meetings',\n    },\n  },\n];\n"
       },
-      "id": "d4000001-0000-4000-8000-000000000003",
+      "id": "f46ca2af-585c-43df-aaa7-b1928f82ebc0",
       "name": "Sample Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        240,
-        220
+        2192,
+        80
       ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const FOLDER_RE = /^(\\/[A-Za-z0-9._-]+)+$/;\nconst DEFAULT_FOLDER = '/Work/Meetings';\n\nconst item = $input.first().json;\nconst body =\n  item.body && typeof item.body === 'object' && !Array.isArray(item.body)\n    ? item.body\n    : item;\n\nconst smokeTest = Boolean(body._smokeTest);\nconst title = String(body.title ?? '').trim();\nif (!title) {\n  throw new Error('Missing required field: title');\n}\n\nlet attendees = [];\nif (Array.isArray(body.attendees)) {\n  attendees = body.attendees.map((a) => String(a).trim()).filter(Boolean);\n} else if (typeof body.attendees === 'string' && body.attendees.trim()) {\n  attendees = body.attendees\n    .split(',')\n    .map((a) => a.trim())\n    .filter(Boolean);\n}\n\nconst folderRaw = String(body.folder ?? DEFAULT_FOLDER).trim().replace(/\\/$/, '') || DEFAULT_FOLDER;\nif (!FOLDER_RE.test(folderRaw)) {\n  throw new Error(`Invalid folder \"${folderRaw}\". Expected /Work/Meetings`);\n}\n\nreturn [\n  {\n    json: {\n      title,\n      start: String(body.start ?? '').trim(),\n      end: String(body.end ?? '').trim(),\n      attendees,\n      location: String(body.location ?? '').trim(),\n      agenda: String(body.agenda ?? '').trim(),\n      notes: String(body.notes ?? '').trim(),\n      folder: folderRaw,\n      viaWebhook: !smokeTest,\n    },\n  },\n];\n"
+        "jsCode": "const DEFAULT_FOLDER = '/Work/Meetings';\n\nconst item = $input.first().json;\nconst body =\n  item.body && typeof item.body === 'object' && !Array.isArray(item.body)\n    ? item.body\n    : item;\n\nconst smokeTest = Boolean(body._smokeTest);\nconst title = String(body.title ?? '').trim();\nif (!title) {\n  throw new Error('Missing required field: title');\n}\n\nlet attendees = [];\nif (Array.isArray(body.attendees)) {\n  attendees = body.attendees.map((a) => String(a).trim()).filter(Boolean);\n} else if (typeof body.attendees === 'string' && body.attendees.trim()) {\n  attendees = body.attendees\n    .split(',')\n    .map((a) => a.trim())\n    .filter(Boolean);\n}\n\nlet folderRaw = String(body.folder ?? DEFAULT_FOLDER).trim().replace(/\\/$/, '') || DEFAULT_FOLDER;\nif (!folderRaw.startsWith('/')) {\n  folderRaw = '/' + folderRaw;\n}\n\nreturn [\n  {\n    json: {\n      title,\n      start: String(body.start ?? '').trim(),\n      end: String(body.end ?? '').trim(),\n      attendees,\n      location: String(body.location ?? '').trim(),\n      agenda: String(body.agenda ?? '').trim(),\n      notes: String(body.notes ?? '').trim(),\n      folder: folderRaw,\n      viaWebhook: !smokeTest,\n    },\n  },\n];"
       },
-      "id": "d4000001-0000-4000-8000-000000000004",
+      "id": "a9118162-78b8-4cad-8997-e54ad195995d",
       "name": "Validate + Parse",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        480,
-        100
+        2416,
+        176
       ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "const BUILDER = 'http://notebook-builder:8080';\nconst meeting = $input.first().json;\n\nconst body = {\n  title: String(meeting.title || '').trim(),\n  start: String(meeting.start || '').trim(),\n  end: String(meeting.end || '').trim(),\n  location: String(meeting.location || '').trim(),\n  attendees: Array.isArray(meeting.attendees) ? meeting.attendees : [],\n  agenda: String(meeting.agenda || ''),\n  notes: String(meeting.notes || ''),\n  template: 'Blank',\n};\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${BUILDER}/v1/meeting-rmdoc`,\n  headers: { 'Content-Type': 'application/json' },\n  body,\n  encoding: 'arraybuffer',\n  returnFullResponse: true,\n  timeout: 60000,\n});\n\nconst status = response.statusCode || response.status || 0;\nif (status < 200 || status >= 300) {\n  const detail = Buffer.isBuffer(response.body)\n    ? response.body.toString('utf8')\n    : String(response.body ?? '');\n  throw new Error(`notebook-builder failed (status=${status}): ${detail.slice(0, 500)}`);\n}\n\nfunction asBuffer(payload) {\n  if (Buffer.isBuffer(payload)) return payload;\n  if (payload?.type === 'Buffer' && Array.isArray(payload.data)) {\n    return Buffer.from(payload.data);\n  }\n  if (payload instanceof ArrayBuffer) return Buffer.from(payload);\n  if (ArrayBuffer.isView(payload)) {\n    return Buffer.from(payload.buffer, payload.byteOffset, payload.byteLength);\n  }\n  if (typeof payload === 'string') return Buffer.from(payload, 'binary');\n  throw new Error(`Unexpected rmdoc payload type: ${typeof payload}`);\n}\n\nconst rmdoc = asBuffer(response.body);\nif (rmdoc.length < 100) {\n  throw new Error(`notebook-builder returned empty rmdoc (${rmdoc.length} bytes)`);\n}\n\nconst headers = response.headers || {};\nconst filename =\n  String(headers['x-filename'] || headers['X-Filename'] || '').trim() ||\n  `${body.title.replace(/[^A-Za-z0-9._-]+/g, '-') || 'Meeting'}.rmdoc`;\n\nconst binary = await this.helpers.prepareBinaryData(rmdoc, filename, 'application/zip');\n\nreturn [\n  {\n    json: {\n      title: body.title,\n      filename,\n      folder: String(meeting.folder || '/Work/Meetings'),\n      viaWebhook: Boolean(meeting.viaWebhook),\n    },\n    binary: { data: binary },\n  },\n];\n"
       },
-      "id": "d4000001-0000-4000-8000-000000000005",
+      "id": "07e48a25-402f-44e4-8880-1b00ab04a95b",
       "name": "Build Meeting Notebook",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        720,
-        100
+        2640,
+        176
       ]
     },
     {
       "parameters": {
-        "source": "database",
         "workflowId": {
           "__rl": true,
-          "mode": "name",
-          "value": "remarkable-upload"
+          "value": "YzH0jvu4SjWUWVjp",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/YzH0jvu4SjWUWVjp",
+          "cachedResultName": "remarkable-upload"
         },
-        "mode": "once",
         "options": {
           "waitForSubWorkflow": true
         }
       },
-      "id": "d4000001-0000-4000-8000-000000000008",
+      "id": "63b0dc19-f043-401c-95d1-3620a6ec81c8",
       "name": "Upload to reMarkable",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        960,
-        100
+        2864,
+        176
       ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "const meta = $('Build Meeting Notebook').first().json;\nreturn [\n  {\n    json: {\n      status: 'uploaded',\n      filename: meta.filename,\n      folder: meta.folder,\n    },\n  },\n];\n"
       },
-      "id": "d4000001-0000-4000-8000-000000000011",
+      "id": "4cf5c2bd-57e5-4bf4-a38d-9c515fb62818",
       "name": "Done",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1440,
-        100
+        3088,
+        176
       ]
     }
   ],
@@ -182,14 +178,9 @@
       ]
     }
   },
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Europe/Berlin"
-  },
-  "staticData": null,
-  "meta": {
-    "templateCredsSetupCompleted": true
-  },
   "pinData": {},
-  "tags": []
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "da0f2b3490b97d2187f7b88cd32ab070f99c9a218f821b5f278005eb69c6432f"
+  }
 }

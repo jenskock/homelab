@@ -66,8 +66,8 @@ Execute Workflow → `remarkable-upload` with:
 | `json.filename` | yes | `NZZ-Briefing.pdf` or `Q3-Planning.rmdoc` |
 | `json.folder` | no | `/News/2026-07-30` (default `/Inbox`) |
 
-`folder` must match `^(/[A-Za-z0-9._-]+)+$`.
-Nested folders are created as needed.
+`folder` is any absolute cloud path (e.g. `/Work/Meetings` or
+`/Work/My Projects`); nested folders are created as needed.
 
 Sidecar: `outbox/<base>.<ext>` +
 `outbox/<base>.<ext>.meta.json` → `{ "folder", "name" }`.

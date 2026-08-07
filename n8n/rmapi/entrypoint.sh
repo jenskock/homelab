@@ -7,16 +7,11 @@ DONE="${STAGING_ROOT}/done"
 FAILED="${STAGING_ROOT}/failed"
 POLL_SECONDS="${POLL_SECONDS:-2}"
 MIN_AGE_SECONDS="${MIN_AGE_SECONDS:-1}"
-FOLDER_RE='^(/[A-Za-z0-9._-]+)+$'
 
 mkdir -p "$OUTBOX" "$DONE" "$FAILED"
 
 log() {
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"
-}
-
-validate_folder() {
-  echo "$1" | grep -Eq "$FOLDER_RE"
 }
 
 ensure_remote_folder() {
@@ -61,17 +56,13 @@ process_file() {
   name=$(sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$meta" | head -n1)
 
   [ -n "$folder" ] || folder="/Inbox"
+  folder=$(printf '%s' "$folder" | sed 's:/*$::')
+  case "$folder" in
+    /*) ;;
+    *) folder="/$folder" ;;
+  esac
   [ -n "$name" ] || name="$base"
   name=$(basename "$name")
-
-  if ! validate_folder "$folder"; then
-    msg="invalid folder in meta: ${folder}"
-    log "FAIL ${base}: ${msg}"
-    echo "$msg" >"$errfile"
-    mv -f "$file" "$FAILED/"
-    mv -f "$meta" "$FAILED/"
-    return 0
-  fi
 
   if [ "$name" != "$base" ]; then
     upload_path="/tmp/${name}"

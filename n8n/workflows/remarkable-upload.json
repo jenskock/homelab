@@ -1,54 +1,51 @@
 {
-  "name": "remarkable-upload",
   "nodes": [
     {
       "parameters": {},
-      "id": "b2000001-0000-4000-8000-000000000001",
+      "id": "b8922e72-f04d-4752-aaa5-ce12e7168d9c",
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
       "position": [
-        0,
-        0
+        576,
+        160
       ]
     },
     {
       "parameters": {},
-      "id": "b2000001-0000-4000-8000-000000000002",
+      "id": "49a3bbf2-92cc-493d-9b02-aacccfa92f6a",
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        0,
-        240
+        352,
+        -32
       ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "const minimalPdf = Buffer.from(\n  '%PDF-1.4\\n' +\n    '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\\n' +\n    '2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\\n' +\n    '3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj\\n' +\n    'xref\\n0 4\\n0000000000 65535 f \\n0000000009 00000 n \\n0000000052 00000 n \\n0000000101 00000 n \\n' +\n    'trailer<</Size 4/Root 1 0 R>>\\n' +\n    'startxref\\n178\\n%%EOF\\n',\n  'utf8',\n);\n\nconst filename = 'rmapi-smoke-test.pdf';\nconst binary = await this.helpers.prepareBinaryData(\n  minimalPdf,\n  filename,\n  'application/pdf',\n);\n\nreturn [\n  {\n    json: {\n      filename,\n      folder: '/Inbox',\n    },\n    binary: {\n      data: binary,\n    },\n  },\n];\n"
       },
-      "id": "b2000001-0000-4000-8000-000000000003",
+      "id": "59c03835-e4e0-48a3-84f8-b25da3c9098f",
       "name": "Placeholder PDF",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        240,
-        240
+        576,
+        -32
       ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const FOLDER_RE = /^(\\/[A-Za-z0-9._-]+)+$/;\nconst STAGING = '/home/node/.n8n-files';\nconst ALLOWED_EXT = ['.pdf', '.rmdoc', '.rmn', '.zip'];\n\nconst item = $input.first();\nif (!item.binary?.data) {\n  throw new Error('Missing binary.data');\n}\n\nconst filenameRaw = String(item.json.filename ?? item.binary.data.fileName ?? 'document.pdf');\nconst filename = filenameRaw.split(/[/\\\\]/).pop() || 'document.pdf';\n\nconst folder = String(item.json.folder ?? '/Inbox').replace(/\\/$/, '') || '/Inbox';\nif (!FOLDER_RE.test(folder)) {\n  throw new Error(`Invalid folder \"${folder}\". Expected /Inbox or /Inbox/NZZ`);\n}\n\nconst lower = filename.toLowerCase();\nconst ext = ALLOWED_EXT.find((e) => lower.endsWith(e)) || '.pdf';\nconst stem =\n  filename\n    .replace(/\\.[^.]+$/, '')\n    .replace(/[^A-Za-z0-9._-]+/g, '-')\n    .replace(/-+/g, '-')\n    .replace(/^[-.]+|[-.]+$/g, '') || 'document';\nconst displayName = lower.endsWith(ext) ? filename : `${stem}${ext}`;\nconst base = `upload-${$execution.id}-${stem}${ext}`;\n\nconst outboxFile = `${STAGING}/outbox/${base}`;\nconst outboxMeta = `${outboxFile}.meta.json`;\nconst doneFile = `${STAGING}/done/${base}`;\nconst doneMeta = `${doneFile}.meta.json`;\nconst failedFile = `${STAGING}/failed/${base}`;\nconst failedMeta = `${failedFile}.meta.json`;\nconst failedErr = `${STAGING}/failed/${base}.err`;\n\nconst mimeByExt = {\n  '.pdf': 'application/pdf',\n  '.rmdoc': 'application/zip',\n  '.rmn': 'application/zip',\n  '.zip': 'application/zip',\n};\n\nconst metaBinary = await this.helpers.prepareBinaryData(\n  Buffer.from(JSON.stringify({ folder, name: displayName }), 'utf8'),\n  `${base}.meta.json`,\n  'application/json',\n);\n\nconst fileBinary = item.binary.data;\nfileBinary.fileName = base;\nfileBinary.mimeType = fileBinary.mimeType || mimeByExt[ext];\n\nreturn [\n  {\n    json: {\n      filename: displayName,\n      folder,\n      base,\n      outboxPdf: outboxFile,\n      outboxMeta,\n      donePdf: doneFile,\n      doneMeta,\n      failedPdf: failedFile,\n      failedMeta,\n      failedErr,\n    },\n    binary: {\n      data: fileBinary,\n      meta: metaBinary,\n    },\n  },\n];\n"
+        "jsCode": "const STAGING = '/home/node/.n8n-files';\nconst ALLOWED_EXT = ['.pdf', '.rmdoc', '.rmn', '.zip'];\n\nconst item = $input.first();\nif (!item.binary?.data) {\n  throw new Error('Missing binary.data');\n}\n\nconst filenameRaw = String(item.json.filename ?? item.binary.data.fileName ?? 'document.pdf');\nconst filename = filenameRaw.split(/[/\\\\]/).pop() || 'document.pdf';\n\nlet folder = String(item.json.folder ?? '/Inbox').trim().replace(/\\/$/, '') || '/Inbox';\nif (!folder.startsWith('/')) {\n  folder = '/' + folder;\n}\n\nconst lower = filename.toLowerCase();\nconst ext = ALLOWED_EXT.find((e) => lower.endsWith(e)) || '.pdf';\nconst stem =\n  filename\n    .replace(/\\.[^.]+$/, '')\n    .replace(/[^A-Za-z0-9._-]+/g, '-')\n    .replace(/-+/g, '-')\n    .replace(/^[-.]+|[-.]+$/g, '') || 'document';\nconst displayName = lower.endsWith(ext) ? filename : `${stem}${ext}`;\nconst base = `upload-${$execution.id}-${stem}${ext}`;\n\nconst outboxFile = `${STAGING}/outbox/${base}`;\nconst outboxMeta = `${outboxFile}.meta.json`;\nconst doneFile = `${STAGING}/done/${base}`;\nconst doneMeta = `${doneFile}.meta.json`;\nconst failedFile = `${STAGING}/failed/${base}`;\nconst failedMeta = `${failedFile}.meta.json`;\nconst failedErr = `${STAGING}/failed/${base}.err`;\n\nconst mimeByExt = {\n  '.pdf': 'application/pdf',\n  '.rmdoc': 'application/zip',\n  '.rmn': 'application/zip',\n  '.zip': 'application/zip',\n};\n\nconst metaBinary = await this.helpers.prepareBinaryData(\n  Buffer.from(JSON.stringify({ folder, name: displayName }), 'utf8'),\n  `${base}.meta.json`,\n  'application/json',\n);\n\nconst fileBinary = item.binary.data;\nfileBinary.fileName = base;\nfileBinary.mimeType = fileBinary.mimeType || mimeByExt[ext];\n\nreturn [\n  {\n    json: {\n      filename: displayName,\n      folder,\n      base,\n      outboxPdf: outboxFile,\n      outboxMeta,\n      donePdf: doneFile,\n      doneMeta,\n      failedPdf: failedFile,\n      failedMeta,\n      failedErr,\n    },\n    binary: {\n      data: fileBinary,\n      meta: metaBinary,\n    },\n  },\n];"
       },
-      "id": "b2000001-0000-4000-8000-000000000004",
+      "id": "ccc3ccc0-44ed-4767-88f5-f32b3012fc49",
       "name": "Prepare Staging Path",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        520,
-        120
+        800,
+        64
       ]
     },
     {
@@ -58,43 +55,41 @@
         "dataPropertyName": "meta",
         "options": {}
       },
-      "id": "b2000001-0000-4000-8000-000000000005",
+      "id": "8299d586-2c24-4431-9511-dd2c0b0d5509",
       "name": "Write Meta",
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1,
       "position": [
-        760,
-        120
+        1024,
+        64
       ]
     },
     {
       "parameters": {
         "operation": "write",
         "fileName": "={{ $json.outboxPdf }}",
-        "dataPropertyName": "data",
         "options": {}
       },
-      "id": "b2000001-0000-4000-8000-000000000006",
+      "id": "c7128095-0a27-465b-ae0c-41c664118510",
       "name": "Write File",
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1,
       "position": [
-        1000,
-        120
+        1248,
+        64
       ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
         "jsCode": "const fs = require('fs');\n\nconst item = $input.first();\nconst { donePdf, doneMeta, failedPdf, failedMeta, failedErr, base, folder, filename } = item.json;\nconst timeoutMs = 60000;\nconst pollMs = 2000;\n\nconst start = Date.now();\nwhile (Date.now() - start < timeoutMs) {\n  if (fs.existsSync(donePdf)) {\n    fs.rmSync(donePdf, { force: true });\n    fs.rmSync(doneMeta, { force: true });\n    return [{ json: { status: 'uploaded', filename, folder, base } }];\n  }\n\n  if (fs.existsSync(failedPdf) || fs.existsSync(failedErr)) {\n    let err = 'rmapi upload failed';\n    if (fs.existsSync(failedErr)) {\n      err = fs.readFileSync(failedErr, 'utf8').trim() || err;\n    }\n    fs.rmSync(failedPdf, { force: true });\n    fs.rmSync(failedMeta, { force: true });\n    fs.rmSync(failedErr, { force: true });\n    throw new Error(err);\n  }\n\n  await new Promise((resolve) => setTimeout(resolve, pollMs));\n}\n\nthrow new Error(`Timed out waiting for rmapi upload (base=${base})`);\n"
       },
-      "id": "b2000001-0000-4000-8000-000000000007",
+      "id": "c5d89728-dedb-4739-87bb-bf3bf6785116",
       "name": "Wait for Upload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1240,
-        120
+        1472,
+        64
       ]
     }
   ],
@@ -166,14 +161,8 @@
       ]
     }
   },
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Europe/Berlin"
-  },
-  "staticData": null,
-  "meta": {
-    "templateCredsSetupCompleted": true
-  },
   "pinData": {},
-  "tags": []
+  "meta": {
+    "instanceId": "da0f2b3490b97d2187f7b88cd32ab070f99c9a218f821b5f278005eb69c6432f"
+  }
 }
