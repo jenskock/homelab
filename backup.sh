@@ -18,6 +18,7 @@ OPT_SOURCES=(
   /opt/open-webui
   /opt/paperless
   /opt/books
+  /opt/homeassistant
 )
 
 if [ "$(id -u)" -ne 0 ]; then
